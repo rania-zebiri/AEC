@@ -40,9 +40,9 @@ const RiskMap = () => {
 
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
-  const circlesRef = useRef([]);      // Pour les cercles des zones
-  const contractMarkersRef = useRef([]); // Pour les marqueurs des contrats
-  const hotspotMarkersRef = useRef([]);  // Pour les marqueurs des hotspots
+  const circlesRef = useRef([]);
+  const contractMarkersRef = useRef([]);
+  const hotspotMarkersRef = useRef([]);
 
   const handleRunPML = (wilaya) => {
     const params = new URLSearchParams({
@@ -113,7 +113,6 @@ const RiskMap = () => {
 
     const map = mapInstanceRef.current;
 
-    // Supprimer les anciens cercles
     circlesRef.current.forEach(circle => {
       if (circle) map.removeLayer(circle);
     });
@@ -134,7 +133,7 @@ const RiskMap = () => {
       const circle = L.circle([wilaya.lat, wilaya.lng], {
         radius: Math.min(radius, 45000),
         fillColor: color,
-        fillOpacity: showZonesFill ? 0.55 : 0.15,  // ← ICI : Show Zones Fill contrôle l'opacité
+        fillOpacity: showZonesFill ? 0.55 : 0.0,  // Remplissage vide si false
         color: zone.color,
         weight: 2.5,
         opacity: 0.85,
@@ -142,7 +141,6 @@ const RiskMap = () => {
         smoothFactor: 1
       }).addTo(map);
 
-      // Tooltip toujours présent
       let tooltipHtml = `
         <div class="custom-tooltip-content">
           <div class="tooltip-title" style="color: ${zone.color};">${wilaya.name}</div>
@@ -153,7 +151,7 @@ const RiskMap = () => {
         tooltipHtml += `<div class="tooltip-contracts">📄 ${wilaya.contracts} contrats</div>`;
       }
       if (showHotspots) {
-        tooltipHtml += `<div class="tooltip-hotspots">🔥 ${wilaya.hotspots} hotspots</div>`;
+        tooltipHtml += `<div class="tooltip-hotspots">⚠️ ${wilaya.hotspots} hotspots</div>`;
       }
       tooltipHtml += `</div>`;
 
@@ -176,28 +174,25 @@ const RiskMap = () => {
 
     const map = mapInstanceRef.current;
 
-    // Supprimer les anciens marqueurs de contrats
     contractMarkersRef.current.forEach(marker => {
       if (marker) map.removeLayer(marker);
     });
     contractMarkersRef.current = [];
 
-    if (!showContracts) return; // ← ICI : Show Contracts contrôle l'affichage
+    if (!showContracts) return;
 
-    // Créer des marqueurs pour chaque contrat (plusieurs par wilaya)
     WILAYAS.forEach((wilaya) => {
-      const contractCount = Math.min(wilaya.contracts, 8); // Max 8 pour ne pas surcharger
+      const contractCount = Math.min(wilaya.contracts, 8);
       for (let i = 0; i < contractCount; i++) {
-        // Offset aléatoire pour répartir les marqueurs autour du centre
         const angle = (i / contractCount) * Math.PI * 2;
         const offsetLat = (Math.cos(angle) * 0.05) * (wilaya.contracts / 100);
         const offsetLng = (Math.sin(angle) * 0.05) * (wilaya.contracts / 100);
 
         const contractMarker = L.marker([wilaya.lat + offsetLat, wilaya.lng + offsetLng], {
           icon: L.divIcon({
-            html: `<div class="contract-marker" style="background-color: ${RISK_ZONES[wilaya.risk].color}">📄</div>`,
+            html: `<div class="contract-marker">📄</div>`,
             className: 'custom-div-icon',
-            iconSize: [24, 24]
+            iconSize: [20, 20]
           })
         }).addTo(map);
 
@@ -211,21 +206,19 @@ const RiskMap = () => {
     });
   }, [mapInstanceRef.current, showContracts]);
 
-  // Fonction pour créer/mettre à jour les marqueurs des hotspots (Show Hotspots)
+  // Fonction pour créer/mettre à jour les marqueurs des hotspots (Points rouges clignotants)
   useEffect(() => {
     if (!mapInstanceRef.current) return;
 
     const map = mapInstanceRef.current;
 
-    // Supprimer les anciens marqueurs de hotspots
     hotspotMarkersRef.current.forEach(marker => {
       if (marker) map.removeLayer(marker);
     });
     hotspotMarkersRef.current = [];
 
-    if (!showHotspots) return; // ← ICI : Show Hotspots contrôle l'affichage
+    if (!showHotspots) return;
 
-    // Créer des marqueurs pour chaque hotspot
     WILAYAS.forEach((wilaya) => {
       for (let i = 0; i < wilaya.hotspots; i++) {
         const angle = (i / wilaya.hotspots) * Math.PI * 2;
@@ -234,9 +227,9 @@ const RiskMap = () => {
 
         const hotspotMarker = L.marker([wilaya.lat + offsetLat, wilaya.lng + offsetLng], {
           icon: L.divIcon({
-            html: `<div class="hotspot-marker pulse-marker">🔥</div>`,
+            html: `<div class="hotspot-marker hotspot-pulse"></div>`,
             className: 'custom-div-icon',
-            iconSize: [20, 20]
+            iconSize: [12, 12]
           })
         }).addTo(map);
 
@@ -273,7 +266,7 @@ const RiskMap = () => {
       {/* Interface overlay */}
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 10, pointerEvents: "none" }}>
 
-        {/* Panneau MAP LAYERS - TOUS LES BOUTONS FONCTIONNELS SUR LA CARTE */}
+        {/* Panneau MAP LAYERS */}
         <div className="absolute top-4 right-4" style={{ pointerEvents: "auto" }}>
           <div className="bg-carbon/90 backdrop-blur-md rounded-xl shadow-2xl border border-ash/50 w-64 overflow-hidden">
             <div className="px-4 py-3 bg-gradient-to-r from-teal/10 to-transparent border-b border-ash/50">
@@ -281,7 +274,7 @@ const RiskMap = () => {
             </div>
             <div className="p-3 space-y-3">
 
-              {/* ✅ Show Contracts - Affiche des marqueurs 📄 sur la carte */}
+              {/* Show Contracts - Icône 📄 seulement */}
               <label className="flex items-center gap-2 text-sm text-cloud cursor-pointer hover:text-pure transition-colors">
                 <input
                   type="checkbox"
@@ -290,10 +283,10 @@ const RiskMap = () => {
                   className="rounded border-ash bg-graphite"
                 />
                 <span>Show Contracts</span>
-                {showContracts && <span className="text-teal text-xs ml-auto">● visible</span>}
+                {showContracts && <span className="text-teal text-xs ml-auto">📄</span>}
               </label>
 
-              {/* ✅ Show Hotspots - Affiche des marqueurs 🔥 avec animation sur la carte */}
+              {/* Show Hotspots - Points rouges clignotants */}
               <label className="flex items-center gap-2 text-sm text-cloud cursor-pointer hover:text-pure transition-colors">
                 <input
                   type="checkbox"
@@ -302,10 +295,10 @@ const RiskMap = () => {
                   className="rounded border-ash bg-graphite"
                 />
                 <span>Show Hotspots</span>
-                {showHotspots && <span className="text-red text-xs ml-auto animate-pulse">● actif</span>}
+                {showHotspots && <span className="text-red text-xs ml-auto animate-pulse">●</span>}
               </label>
 
-              {/* ✅ Show Zones Fill - Contrôle le remplissage des cercles */}
+              {/* Show Zones Fill - Remplissage des cercles */}
               <label className="flex items-center gap-2 text-sm text-cloud cursor-pointer hover:text-pure transition-colors">
                 <input
                   type="checkbox"
@@ -438,7 +431,7 @@ const RiskMap = () => {
         )}
       </div>
 
-      {/* MODAL WILAYA - inchangé */}
+      {/* MODAL WILAYA */}
       {selectedWilaya && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-20" style={{ pointerEvents: "auto" }} onClick={() => setSelectedWilaya(null)}>
           <div className="bg-gradient-to-br from-carbon to-graphite rounded-2xl shadow-2xl w-[420px] border border-ash/50" onClick={(e) => e.stopPropagation()}>
@@ -490,44 +483,65 @@ const RiskMap = () => {
           border-radius: 12px !important;
           padding: 8px 12px !important;
         }
-        .contract-marker, .hotspot-marker {
+
+        /* Contract markers - juste l'icône 📄 */
+        .contract-marker {
           font-size: 14px;
           text-align: center;
           line-height: 1;
           filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
           cursor: pointer;
           transition: transform 0.2s;
-        }
-        .contract-marker {
-          background: rgba(0,0,0,0.6);
-          border-radius: 50%;
-          padding: 4px;
-          width: 24px;
-          height: 24px;
+          background: transparent;
+          width: 20px;
+          height: 20px;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 12px;
         }
-        .hotspot-marker {
-          font-size: 16px;
-          filter: drop-shadow(0 0 4px rgba(218,54,51,0.8));
-        }
-        .contract-marker:hover, .hotspot-marker:hover {
+
+        .contract-marker:hover {
           transform: scale(1.2);
         }
-        @keyframes pulse {
-          0%, 100% { opacity: 0.6; transform: scale(1); }
-          50% { opacity: 1; transform: scale(1.2); text-shadow: 0 0 8px rgba(218,54,51,0.8); }
+
+        /* Hotspot markers - points rouges clignotants */
+        .hotspot-marker {
+          width: 12px;
+          height: 12px;
+          background-color: #DA3633;
+          border-radius: 50%;
+          box-shadow: 0 0 8px rgba(218,54,51,0.8);
+          cursor: pointer;
+          transition: all 0.2s ease;
         }
-        .pulse-marker {
-          animation: pulse 1s ease-in-out infinite;
-          display: inline-block;
+
+        .hotspot-marker:hover {
+          transform: scale(1.3);
+          box-shadow: 0 0 12px rgba(218,54,51,1);
         }
+
+        @keyframes hotspotPulse {
+          0%, 100% {
+            opacity: 0.6;
+            transform: scale(0.8);
+            box-shadow: 0 0 4px rgba(218,54,51,0.5);
+          }
+          50% {
+            opacity: 1;
+            transform: scale(1.2);
+            box-shadow: 0 0 12px rgba(218,54,51,1);
+          }
+        }
+
+        .hotspot-pulse {
+          animation: hotspotPulse 1s ease-in-out infinite;
+        }
+
         .risk-circle {
           transition: all 0.3s ease;
           cursor: pointer;
         }
+
         .risk-circle:hover {
           stroke-width: 3;
           filter: drop-shadow(0 0 8px rgba(57,208,216,0.5));
