@@ -1,40 +1,31 @@
-from core.rpa_zones import get_zone_by_wilaya
-from core.vulnerability import get_vulnerability_factor
-
-def calculate_contract_score(wilaya: str, structure_type: str, capital: float) -> dict:
+def calculate_contract_score(contract):
     """
-    Computes a risk score (0-100) for a specific contract.
-    Logic:
-    - Zone Weight (50%): Zone III = 50 pts, Zone 0 = 0 pts.
-    - Vulnerability Weight (30%): Fragile = 30 pts, Resistant = 5 pts.
-    - Capital Weight (20%): Scale based on the amount (logarithmic).
+    Grades a building from 0 to 100 based on RPA 99 technical criteria.
+    100 = Perfect Safety | 0 = Extreme Danger
     """
-    # 1. Zone Score (0 - 50)
-    zone = get_zone_by_wilaya(wilaya)
-    zone_map = {"0": 0, "I": 10, "IIa": 25, "IIb": 35, "III": 50}
-    zone_score = zone_map.get(zone, 25) # Default to moderate if unknown
-
-    # 2. Vulnerability Score (0 - 30)
-    vuln_factor = get_vulnerability_factor(structure_type)
-    vuln_score = vuln_factor * 30
-
-    # 3. Capital Exposure Score (0 - 20)
-    # We use 1 Billion DZD as a benchmark for a 'High' exposure score
-    cap_score = min(20, (capital / 1_000_000_000) * 20)
-
-    total_score = round(zone_score + vuln_score + cap_score, 2)
+    score = 100
     
-    # Risk Level Tag
-    if total_score > 70: label = "CRITIQUE"
-    elif total_score > 40: label = "MODÉRÉ"
-    else: label = "FAIBLE"
-
-    return {
-        "score": total_score,
-        "label": label,
-        "details": {
-            "zone_contribution": zone_score,
-            "vuln_contribution": round(vuln_score, 2),
-            "capital_contribution": round(cap_score, 2)
-        }
-    }
+    # 1. Wall Thickness Check (RPA Requirement: Min 20cm)
+    wall_thickness = contract.get("wall_thickness", 20) # default to 20
+    if wall_thickness < 20:
+        score -= 30  # Massive penalty: Dangerous structural weakness
+        
+    # 2. Plan Regularity (RPA Article 9.1.3: L/W < 3.5)
+    length = contract.get("length", 10)
+    width = contract.get("width", 5)
+    ratio = length / width
+    if ratio > 3.5:
+        score -= 20  # Penalty: Building is too long/narrow, prone to twisting
+        
+    # 3. Structural System (RPA Article 9.1.1)
+    # Only "Maçonnerie Chaînée" (Confined Masonry) is allowed
+    is_chained = contract.get("is_chained", True)
+    if not is_chained:
+        score -= 40 # Major penalty: Masonry without reinforcements is a 'death trap'
+        
+    # 4. Age of Building
+    year = contract.get("year_built", 2010)
+    if year < 2003:
+        score -= 10 # Built before current RPA version
+        
+    return max(0, score)

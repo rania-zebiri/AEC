@@ -1,44 +1,56 @@
-from core.risk_scorer import calculate_contract_score
-from core.hotspot_detector import detect_hotspots
+from core.rpa_zones import get_zone_by_location
 
-def decide_underwriting(new_contract: dict, portfolio_data: list, capacity_limit: float = 1_000_000_000) -> dict:
+def decide_underwriting(contract, portfolio):
     """
-    Automated decision for new insurance submissions.
-    
-    Args:
-        new_contract: {'wilaya': 'Alger', 'structure': 'Pierre', 'capital': 200000000}
-        portfolio_data: Current existing contracts.
+    Decides if a building is acceptable based on RPA 99 Table 9.1
+    and calculates a risk premium surcharge.
     """
-    # 1. Calculate individual risk score
-    score_result = calculate_contract_score(
-        new_contract['wilaya'], 
-        new_contract['structure'], 
-        new_contract['capital']
-    )
-    score = score_result['score']
+    wilaya = contract.get("wilaya")
+    commune = contract.get("commune")
+    floors = contract.get("floors", 1)
+    height = contract.get("height", 3) # in meters
     
-    # 2. Check current concentration in that wilaya
-    wilaya_exposure = sum(c['capital'] for c in portfolio_data if c['wilaya'].upper() == new_contract['wilaya'].upper())
-    remaining_capacity = capacity_limit - wilaya_exposure
+    zone = get_zone_by_location(wilaya, commune)
     
-    # 3. Decision Logic
-    decision = "ACCEPT"
-    reason = "Risk within safe limits."
+    # RPA 99 - Table 9.1: Hauteur et nombre de niveaux limites
+    #
+    limits = {
+        "0":   {"max_floors": 10, "max_height": 30}, # Very flexible in South
+        "I":   {"max_floors": 5,  "max_height": 17},
+        "IIa": {"max_floors": 4,  "max_height": 14},
+        "IIb": {"max_floors": 4,  "max_height": 14},
+        "III": {"max_floors": 3,  "max_height": 11}  # Very strict in Algiers
+    }
     
-    if score > 80:
-        decision = "REJECT"
-        reason = f"Individual risk score ({score}) is too high for this building type/zone."
-    elif new_contract['capital'] > remaining_capacity:
-        if remaining_capacity <= 0:
-            decision = "REJECT"
-            reason = f"Wilaya {new_contract['wilaya']} is at full capacity. No more risks accepted."
-        else:
-            decision = "CONDITIONAL"
-            reason = f"Limited capacity. Only {remaining_capacity:,} DZD can be accepted for this wilaya."
-            
+    limit = limits.get(zone)
+    
+    # 1. TECHNICAL REJECTION LOGIC
+    if floors > limit["max_floors"]:
+        return {
+            "decision": "REJECTED",
+            "reason": f"Violation RPA 99 (Table 9.1): Max {limit['max_floors']} niveaux en Zone {zone}."
+        }
+        
+    if height > limit["max_height"]:
+        return {
+            "decision": "REJECTED",
+            "reason": f"Violation RPA 99: Hauteur {height}m dépasse la limite de {limit['max_height']}m en Zone {zone}."
+        }
+
+    # 2. PRICING SURCHARGE LOGIC
+    base_premium = contract.get("capital") * 0.001 # 0.1% base
+    surcharge = 0
+    
+    if zone == "III": surcharge = 0.50 # +50% for High Risk
+    elif zone in ["IIa", "IIb"]: surcharge = 0.25 # +25%
+    
+    final_premium = base_premium * (1 + surcharge)
+    
     return {
-        "decision": decision,
-        "reason": reason,
-        "risk_score": score,
-        "wilaya_status": "FULL" if remaining_capacity <= 0 else "AVAILABLE"
+        "decision": "ACCEPTED",
+        "zone": zone,
+        "base_premium": round(base_premium, 2),
+        "surcharge_pct": surcharge * 100,
+        "final_premium": round(final_premium, 2),
+        "notes": "Conforme aux principes architecturaux RPA 99."
     }
