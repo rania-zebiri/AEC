@@ -1,5 +1,5 @@
 from groq import Groq
-from config.config import GROQ_API_KEY, MODEL_NAME
+from seismic_risk_ai.config.config import GROQ_API_KEY, MODEL_NAME
 
 client = Groq(api_key=GROQ_API_KEY)
 

@@ -1,5 +1,4 @@
-from core.rpa_zones import get_zone_by_wilaya
-
+from seismic_risk_ai.core.rpa_zones import get_zone_by_location
 def calculate_portfolio_balance(portfolio_data: list) -> float:
     """
     Calculates the 'Balance Index' (0-100).
@@ -13,7 +12,7 @@ def calculate_portfolio_balance(portfolio_data: list) -> float:
     capital_in_high_risk = 0
     
     for contract in portfolio_data:
-        zone = get_zone_by_wilaya(contract['wilaya'])
+        zone = get_zone_by_location(contract['wilaya'])
         if zone == "III":
             capital_in_high_risk += contract['capital']
             

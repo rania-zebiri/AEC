@@ -1,5 +1,4 @@
-from core.rpa_zones import get_zone_by_wilaya
-
+from seismic_risk_ai.core.rpa_zones import get_zone_by_location
 def simulate_p2p_sharing(portfolio_data: list, contribution_rate: float = 0.05) -> dict:
     """
     Simulates a P2P risk-sharing model.
@@ -15,7 +14,7 @@ def simulate_p2p_sharing(portfolio_data: list, contribution_rate: float = 0.05) 
     contributors = []
 
     for contract in portfolio_data:
-        zone = get_zone_by_wilaya(contract['wilaya'])
+        zone = get_zone_by_location(contract['wilaya'])
         # Simplified: Use 5% of capital as a proxy for premium contribution
         pseudo_premium = contract['capital'] * 0.01 
         contribution = pseudo_premium * contribution_rate

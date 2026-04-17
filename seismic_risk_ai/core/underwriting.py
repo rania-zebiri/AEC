@@ -1,7 +1,4 @@
-# seismic_risk_ai/core/underwriting.py
-
 from seismic_risk_ai.core.rpa_zones import get_zone_by_location
-
 def decide_underwriting(contract, portfolio=None, ai_score=None):
     """
     Decides if a building is acceptable based on RPA 99 Table 9.1

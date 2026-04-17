@@ -1,11 +1,10 @@
-from core.rpa_zones import get_zone_by_wilaya
-
+from seismic_risk_ai.core.rpa_zones import get_zone_by_location
 def get_pricing_advice(wilaya: str, current_premium: float) -> dict:
     """
     Provides pricing recommendations based on seismic zone.
     Returns: Recommended change and strategic justification.
     """
-    zone = get_zone_by_wilaya(wilaya)
+    zone = get_zone_by_location(wilaya)
     
     # Pricing Strategy Logic
     if zone == "III":

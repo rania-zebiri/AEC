@@ -1,4 +1,4 @@
-from core.vulnerability import get_vulnerability_factor
+from seismic_risk_ai.core.vulnerability import get_vulnerability_factor
 
 def calculate_pml(capital: float, structure_type: str, magnitude: float, retention_rate: float = 0.2) -> dict:
     """

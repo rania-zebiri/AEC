@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from core.p2p_simulator import simulate_p2p_sharing
+from seismic_risk_ai.core.analytics.p2p_simulator import simulate_p2p_sharing
 
 # Portfolio: One big project in Adrar (contributor) and one in Alger (beneficiary)
 sample_portfolio = [
