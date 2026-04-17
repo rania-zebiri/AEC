@@ -1,376 +1,553 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SEISMICRISK | TREMOR - Seismic Risk Intelligence</title>
-
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text x='0' y='14'>🌍</text></svg>">
-
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-    <script src="https://unpkg.com/react@18.2.0/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://unpkg.com/lucide-static@0.516.0/font/lucide.css" rel="stylesheet">
-
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        slate: '#0D1117', carbon: '#161B22', graphite: '#21262D',
-                        ash: '#30363D', fog: '#8B949E', cloud: '#C9D1D9', pure: '#F0F6FC',
-                        teal: '#39D0D8', blue: '#1F6FEB', amber: '#D29922', red: '#DA3633', green: '#2EA043'
-                    },
-                    fontFamily: { mono: ['"DM Mono"', 'monospace'], sans: ['"Instrument Sans"', 'sans-serif'] }
-                }
-            }
-        }
-    </script>
     <style>
-        body { background-color: #0D1117; color: #C9D1D9; font-family: 'Instrument Sans', sans-serif; overflow-x: hidden; margin: 0; }
-        h1, h2, h3, h4, h5, h6 { font-family: 'DM Mono', monospace; color: #F0F6FC; }
-        .btn-primary { background: linear-gradient(135deg, #39D0D8 0%, #1F6FEB 100%); color: #F0F6FC; border-radius: 0.75rem; padding: 0.5rem 1.5rem; font-weight: 600; transition: all 0.3s; display: inline-flex; align-items: center; gap: 0.5rem; border: none; cursor: pointer; }
-        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
-        .btn-outline { border: 2px solid #39D0D8; color: #39D0D8; background: transparent; border-radius: 0.75rem; padding: 0.5rem 1.5rem; font-weight: 600; transition: all 0.3s; display: inline-flex; align-items: center; gap: 0.5rem; cursor: pointer; }
-        .btn-outline:hover { background: rgba(57, 208, 216, 0.1); }
-        .noise-bg { background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E"); opacity: 0.03; pointer-events: none; }
+        /* ========== RESET & VARIABLES ========== */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        :root {
+            --slate: #0D1117; --carbon: #161B22; --graphite: #21262D;
+            --ash: #30363D; --fog: #8B949E; --cloud: #C9D1D9; --pure: #F0F6FC;
+            --teal: #39D0D8; --blue: #1F6FEB; --amber: #D29922; --red: #DA3633; --green: #2EA043;
+        }
+        html { scroll-behavior: smooth; }
+        body { background: var(--slate); color: var(--cloud); font-family: 'Instrument Sans', sans-serif; overflow-x: hidden; }
+        h1,h2,h3,h4,h5,h6 { font-family: 'DM Mono', monospace; color: var(--pure); }
+        a { text-decoration: none; }
+
+        /* ========== UTILITIES ========== */
+        .custom-icon { width: 28px; height: 28px; display: inline-block; vertical-align: middle; }
+        .noise { position: fixed; inset: 0; z-index: 999; pointer-events: none; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); opacity: 0.025; }
+
+        /* ========== BUTTONS & TAGS ========== */
+        .btn-primary { display: inline-flex; align-items: center; gap: 0.5rem; background: linear-gradient(135deg, var(--teal), var(--blue)); color: var(--pure); border-radius: 0.75rem; padding: 0.625rem 1.5rem; font-weight: 600; font-family: 'Instrument Sans', sans-serif; font-size: 0.9rem; border: none; cursor: pointer; transition: opacity 0.2s, transform 0.2s; }
+        .btn-primary:hover { opacity: 0.88; transform: translateY(-1px); }
+        .btn-outline { display: inline-flex; align-items: center; gap: 0.5rem; border: 2px solid var(--teal); color: var(--teal); background: transparent; border-radius: 0.75rem; padding: 0.625rem 1.5rem; font-weight: 600; font-family: 'Instrument Sans', sans-serif; font-size: 0.9rem; cursor: pointer; transition: background 0.2s; }
+        .btn-outline:hover { background: rgba(57,208,216,0.1); }
+        .tag { display: inline-flex; align-items: center; gap: 0.4rem; border-radius: 9999px; padding: 0.35rem 1rem; font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; }
+        .tag-teal { background: rgba(57,208,216,0.1); border: 1px solid rgba(57,208,216,0.2); color: var(--teal); }
+        .tag-red { background: rgba(218,54,51,0.1); border: 1px solid rgba(218,54,51,0.2); color: var(--red); }
+
+        /* ========== ANIMATIONS ========== */
+        @keyframes slowRotate { 0%,100% { transform: rotate(0deg) scale(1.1); } 50% { transform: rotate(2deg) scale(1.15); } }
+        @keyframes ping { 75%,100% { transform: scale(2); opacity: 0; } }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
         .map-rotate { animation: slowRotate 120s linear infinite; }
-        @keyframes slowRotate { 0% { transform: rotate(0deg) scale(1.1); } 50% { transform: rotate(2deg) scale(1.15); } 100% { transform: rotate(0deg) scale(1.1); } }
-        @keyframes ping { 75%, 100% { transform: scale(2); opacity: 0; } }
-        .animate-ping { animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite; }
+        .ping { animation: ping 1.5s cubic-bezier(0,0,0.2,1) infinite; }
+        .pulse { animation: pulse 2s cubic-bezier(0.4,0,0.6,1) infinite; }
+
+        /* ========== HEADER ========== */
+        header { position: fixed; top: 0; left: 0; width: 100%; z-index: 100; display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 3rem; backdrop-filter: blur(8px); background: rgba(13,17,23,0.7); border-bottom: 1px solid rgba(48,54,61,0.4); }
+        .logo { font-family: 'DM Mono', monospace; font-size: 1.4rem; font-weight: 700; background: linear-gradient(to right, var(--pure), var(--teal)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; display: flex; align-items: center; gap: 0.5rem; }
+        .logo i { -webkit-text-fill-color: var(--teal); font-size: 1.1rem; }
+        .logo-sub { font-size: 0.75rem; color: var(--fog); font-weight: 400; -webkit-text-fill-color: var(--fog); }
+        .nav { display: flex; align-items: center; gap: 1.5rem; }
+        .lang { display: flex; gap: 0.5rem; font-size: 0.875rem; }
+        .lang span { cursor: pointer; color: var(--fog); }
+        .lang span.active { color: var(--teal); font-weight: 700; }
+        .nav-link { font-size: 0.875rem; color: var(--fog); }
+        .nav-link:hover { color: var(--pure); }
+
+        /* ========== HERO ========== */
+        #hero { position: relative; min-height: 100vh; display: flex; align-items: center; overflow: hidden; padding-top: 5rem; }
+        .hero-bg-left { position: absolute; inset: 0; width: 55%; background: var(--slate); z-index: 1; }
+        .hero-bg-right { position: absolute; top: 0; right: 0; width: 45%; height: 100%; background: linear-gradient(to bottom right, var(--carbon), var(--slate)); border-left: 1px solid rgba(48,54,61,0.3); overflow: hidden; }
+        .hero-map-wrap { position: absolute; inset: 0; }
+        .hero-map-img { position: absolute; inset: 0; background: url('https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Algeria_location_map.svg/1024px-Algeria_location_map.svg.png') center/contain no-repeat; opacity: 0.25; filter: grayscale(1); }
+        .hero-fade-r { position: absolute; inset: 0; background: linear-gradient(to right, var(--slate), transparent); }
+        .hero-fade-tb { position: absolute; inset: 0; background: linear-gradient(to bottom, var(--slate) 0%, transparent 30%, transparent 70%, var(--slate) 100%); }
+        .hero-content { position: relative; z-index: 10; max-width: 1400px; width: 100%; margin: 0 auto; padding: 0 3rem; }
+        .hero-inner { width: 55%; padding-right: 5rem; }
+        .badge-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--teal); }
+        .hero-title { font-size: clamp(40px, 5vw, 68px); color: var(--pure); line-height: 1.1; margin-bottom: 1.5rem; }
+        .hero-title .gradient-text { background: linear-gradient(to right, var(--teal), #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .hero-desc { font-size: clamp(15px, 1.5vw, 19px); color: var(--cloud); line-height: 1.7; max-width: 500px; margin-bottom: 2.5rem; }
+        .hero-cta { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 3.5rem; }
+        .hero-certs { padding-top: 1.5rem; border-top: 1px solid var(--ash); }
+        .cert-label { font-size: 11px; color: var(--fog); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.75rem; }
+        .cert-badges { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+        .cert-badge { display: flex; align-items: center; gap: 0.5rem; padding: 0.375rem 0.75rem; background: linear-gradient(to right, var(--graphite), var(--carbon)); border: 1px solid var(--ash); border-radius: 0.5rem; font-size: 0.85rem; color: var(--pure); font-weight: 500; }
+        .cert-badge.muted { color: var(--cloud); background: var(--graphite); }
+        .seismic-wave { position: absolute; bottom: 0; left: 0; width: 100%; height: 80px; z-index: 5; pointer-events: none; }
+
+        /* Map dots */
+        .map-dot { position: absolute; }
+        .dot-inner { position: relative; border-radius: 50%; }
+        .dot-red-inner { width: 16px; height: 16px; background: var(--red); box-shadow: 0 0 25px var(--red); }
+        .dot-amber-inner { width: 12px; height: 12px; background: var(--amber); box-shadow: 0 0 20px var(--amber); }
+        .dot-green-inner { width: 10px; height: 10px; background: var(--green); box-shadow: 0 0 15px var(--green); }
+        .ping-ring { position: absolute; inset: 0; border-radius: 50%; opacity: 0.75; }
+        .ping-ring-red { background: var(--red); }
+        .ping-ring-amber { background: var(--amber); }
+        .map-card { position: absolute; backdrop-filter: blur(6px); border-radius: 0 0.6rem 0.6rem 0; padding: 0.75rem; box-shadow: 0 10px 40px rgba(0,0,0,0.6); }
+        .map-card-teal { border: 1px solid rgba(57,208,216,0.3); border-radius: 0.5rem; background: rgba(22,27,34,0.95); }
+
+        /* ========== SECTIONS ========== */
+        section { padding: 6rem 3rem; }
+        .section-inner { max-width: 1100px; margin: 0 auto; }
+        .section-inner-wide { max-width: 1200px; margin: 0 auto; }
+        .section-center { text-align: center; }
+        .section-heading { font-size: clamp(26px, 3vw, 42px); color: var(--pure); line-height: 1.2; margin-bottom: 1rem; }
+        .section-heading .teal { color: var(--teal); }
+
+        /* ========== PROBLEM ========== */
+        #problem { background: var(--slate); }
+        .problem-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 4rem; text-align: left; }
+        .problem-card { background: linear-gradient(to bottom right, var(--graphite), var(--carbon)); border: 1px solid var(--ash); border-radius: 0.75rem; padding: 1.5rem; position: relative; overflow: hidden; transition: border-color 0.3s; }
+        .problem-card:hover { border-color: rgba(218,54,51,0.35); }
+        .problem-card.amber:hover { border-color: rgba(210,153,34,0.35); }
+        .card-accent { position: absolute; top: 0; left: 0; width: 4px; height: 100%; }
+        .card-icon { width: 3rem; height: 3rem; border-radius: 0.75rem; display: flex; align-items: center; justify-content: center; margin-bottom: 1.25rem; }
+        .card-icon.red { background: rgba(218,54,51,0.1); }
+        .card-icon.amber { background: rgba(210,153,34,0.1); }
+        .card-title { font-family: 'Instrument Sans', sans-serif; font-size: 1.1rem; font-weight: 700; color: var(--pure); margin-bottom: 0.75rem; }
+        .card-text { font-size: 0.875rem; color: var(--fog); line-height: 1.6; }
+
+        /* ========== SOLUTION ========== */
+        #solution { background: linear-gradient(to bottom, #0B0E14, var(--slate)); border-top: 1px solid var(--ash); border-bottom: 1px solid var(--ash); }
+        .modules { display: flex; flex-direction: column; gap: 7rem; margin-top: 5rem; }
+        .module-row { display: flex; flex-wrap: wrap; align-items: center; gap: 3rem; }
+        .module-row.reverse { flex-direction: row-reverse; }
+        .module-visual { flex: 1; min-width: 280px; }
+        .module-text { flex: 1; min-width: 260px; }
+        .module-tag { display: inline-flex; align-items: center; gap: 0.4rem; background: rgba(57,208,216,0.1); border-radius: 9999px; padding: 0.25rem 0.75rem; margin-bottom: 1rem; }
+        .module-tag span { font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 700; color: var(--teal); }
+        .module-title { font-size: clamp(1.4rem, 2.5vw, 1.8rem); color: var(--pure); margin-bottom: 1rem; }
+        .module-desc { font-size: 1rem; color: var(--fog); line-height: 1.7; margin-bottom: 1.5rem; }
+        .check-list { list-style: none; display: flex; flex-direction: column; gap: 0.7rem; }
+        .check-list li { display: flex; align-items: center; gap: 0.75rem; font-size: 0.875rem; color: var(--cloud); }
+        .check-list svg { color: var(--teal); width: 16px; height: 16px; stroke: var(--teal); stroke-width: 2; fill: none; }
+
+        /* Mock screens */
+        .mockup { background: var(--slate); border: 1px solid var(--ash); border-radius: 1rem; padding: 0.5rem; }
+        .mockup-inner { background: var(--carbon); border-radius: 0.75rem; border: 1px solid var(--ash); aspect-ratio: 4/3; position: relative; overflow: hidden; }
+        .mock-bar { position: absolute; top: 0; left: 0; right: 0; height: 2rem; background: var(--graphite); border-bottom: 1px solid var(--ash); display: flex; align-items: center; padding: 0 1rem; gap: 0.5rem; }
+        .mock-dot { width: 0.7rem; height: 0.7rem; border-radius: 50%; }
+        .mock-label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--fog); margin-left: 0.75rem; }
+        .mock-body { position: absolute; inset: 0; padding-top: 2rem; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+
+        /* ========== METRICS ========== */
+        #metrics { background: var(--slate); border-bottom: 1px solid var(--ash); }
+        .metrics-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 3rem 6rem; margin-bottom: 5rem; }
+        .metric-num { font-family: 'DM Mono', monospace; font-size: clamp(3rem,5vw,3.75rem); font-weight: 300; color: var(--teal); line-height: 1; }
+        .metric-label { font-size: 0.875rem; color: var(--fog); margin-top: 0.5rem; }
+        .divider { width: 6rem; height: 1px; background: linear-gradient(to right, transparent, var(--teal), transparent); margin: 0 auto 3rem; }
+        blockquote { font-style: italic; font-size: clamp(1.1rem, 2vw, 1.4rem); color: var(--pure); line-height: 1.7; max-width: 680px; margin: 0 auto 1.5rem; }
+        .quote-attr { font-size: 11px; color: var(--fog); text-transform: uppercase; letter-spacing: 0.1em; }
+
+        /* ========== FEATURES ========== */
+        #features { background: linear-gradient(to bottom, #0B0E14, var(--slate)); }
+        .feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 0 3rem; margin-top: 2rem; }
+        .feature-item { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 0; border-bottom: 1px solid rgba(48,54,61,0.35); transition: border-color 0.3s; }
+        .feature-item:hover { border-color: rgba(57,208,216,0.3); }
+        .feature-num { font-family: 'DM Mono', monospace; font-size: 0.85rem; color: var(--teal); width: 2rem; flex-shrink: 0; opacity: 0.7; }
+        .feature-name { font-size: 0.875rem; color: var(--cloud); flex: 1; }
+        .feature-check { width: 18px; height: 18px; }
+
+        /* ========== HOW IT WORKS ========== */
+        #how { background: var(--slate); border-top: 1px solid var(--ash); border-bottom: 1px solid var(--ash); }
+        .steps { display: flex; flex-wrap: wrap; justify-content: space-around; position: relative; gap: 2rem; }
+        .steps::before { content: ''; position: absolute; top: 30px; left: 10%; right: 10%; height: 1px; background: linear-gradient(to right, transparent, rgba(57,208,216,0.3), transparent); }
+        .step { flex: 1; min-width: 180px; max-width: 260px; display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; }
+        .step-num { width: 4rem; height: 4rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'DM Mono', monospace; font-size: 1.2rem; font-weight: 700; margin-bottom: 1rem; }
+        .step-num.active { background: linear-gradient(to bottom right, var(--teal), var(--blue)); color: #fff; box-shadow: 0 4px 20px rgba(57,208,216,0.35); }
+        .step-num.inactive { background: var(--carbon); border: 2px solid var(--ash); color: var(--cloud); }
+        .step-title { font-family: 'Instrument Sans', sans-serif; font-size: 1.1rem; font-weight: 700; color: var(--pure); margin-bottom: 0.5rem; }
+        .step-desc { font-size: 0.875rem; color: var(--fog); line-height: 1.6; }
+
+        /* ========== ACCESS ========== */
+        #access { background: linear-gradient(to bottom right, #0A0D12, var(--carbon)); padding: 5rem 3rem; }
+        .access-card { max-width: 480px; margin: 0 auto; background: var(--carbon); border: 1px solid var(--ash); border-radius: 0.875rem; padding: 2.5rem; box-shadow: 0 25px 60px rgba(0,0,0,0.5); text-align: center; }
+        .access-icon { width: 5rem; height: 5rem; margin: 0 auto 1.5rem; background: rgba(57,208,216,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid rgba(57,208,216,0.3); }
+        .access-title { font-size: 1.75rem; color: var(--pure); margin-bottom: 0.75rem; }
+        .access-desc { font-size: 0.875rem; color: var(--cloud); margin-bottom: 2rem; line-height: 1.6; }
+        .access-divider { border: none; border-top: 1px solid var(--ash); margin: 1.25rem 0; }
+        .access-note { font-size: 12px; color: var(--fog); line-height: 1.6; display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
+        .access-note a { color: var(--teal); }
+
+        /* ========== FOOTER ========== */
+        footer { background: var(--slate); border-top: 1px solid var(--ash); padding: 2.5rem 3rem; }
+        .footer-grid { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 2.5rem; padding-bottom: 2rem; margin-bottom: 2rem; border-bottom: 1px solid rgba(48,54,61,0.5); }
+        .footer-logo { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; }
+        .footer-logo-text { font-family: 'DM Mono', monospace; font-size: 1.1rem; font-weight: 700; color: var(--pure); }
+        .footer-logo-sub { font-size: 12px; color: var(--fog); }
+        .footer-desc { font-size: 0.875rem; color: var(--fog); margin-bottom: 1rem; line-height: 1.5; }
+        .craag-badge { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.375rem 0.75rem; background: var(--graphite); border: 1px solid var(--ash); border-radius: 0.5rem; font-size: 10px; color: var(--cloud); font-weight: 600; text-transform: uppercase; }
+        .footer-heading { font-family: 'DM Mono', monospace; font-size: 0.875rem; font-weight: 700; color: var(--pure); margin-bottom: 1rem; text-transform: uppercase; }
+        .footer-links { list-style: none; display: flex; flex-direction: column; gap: 0.5rem; }
+        .footer-links a { font-size: 0.875rem; color: var(--fog); }
+        .footer-links a:hover { color: var(--teal); }
+        .footer-bottom { max-width: 1200px; margin: 0 auto; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.75rem; }
+        .footer-copy { font-size: 11px; color: var(--fog); display: flex; align-items: center; gap: 6px; }
+
+
+
+
+ /* Styles spécifiques pour le formulaire Access */
+    #access .form-group {
+        text-align: left;
+        margin-bottom: 1rem;
+    }
+    #access .form-group label {
+        display: block;
+        font-size: 12px;
+        color: var(--fog);
+        margin-bottom: 6px;
+        font-family: 'Instrument Sans', sans-serif;
+    }
+    #access .form-group input {
+        width: 100%;
+        background: #0A0D12;
+        border: 1px solid var(--ash);
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 14px;
+        color: var(--cloud);
+        font-family: 'Instrument Sans', sans-serif;
+        transition: all 0.2s ease;
+    }
+    #access .form-group input:focus {
+        outline: none;
+        border-color: var(--teal);
+        box-shadow: 0 0 0 2px rgba(57,208,216,0.2);
+    }
+    #access .form-group input::placeholder {
+        color: var(--fog);
+        opacity: 0.5;
+        font-size: 13px;
+    }
+    #access button {
+        width: 100%;
+        background: linear-gradient(135deg, var(--teal), var(--blue));
+        color: var(--pure);
+        font-family: 'Instrument Sans', sans-serif;
+        font-weight: 600;
+        font-size: 14px;
+        padding: 12px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        margin-top: 8px;
+        transition: opacity 0.2s, transform 0.2s;
+    }
+    #access button:hover {
+        opacity: 0.88;
+        transform: translateY(-1px);
+    }
+    #access .error-message {
+        color: var(--red);
+        font-size: 12px;
+        text-align: center;
+        margin-top: 12px;
+        padding: 8px;
+        background: rgba(218,54,51,0.1);
+        border-radius: 6px;
+        display: none;
+    }
+    #access .error-message.show {
+        display: block;
+    }
+    #access .access-divider {
+        border: none;
+        border-top: 1px solid var(--ash);
+        margin: 20px 0 16px;
+    }
+    #access .access-note {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-size: 12px;
+        color: var(--fog);
+        flex-wrap: wrap;
+    }
+    #access .access-note a {
+        color: var(--teal);
+        text-decoration: none;
+    }
+    #access .access-note a:hover {
+        text-decoration: underline;
+    }
+
+
+        /* ========== RESPONSIVE ========== */
+        @media (max-width: 768px) {
+            header { padding: 1rem 1.5rem; }
+            .nav-link { display: none; }
+            section { padding: 4rem 1.5rem; }
+            .hero-inner { width: 100%; padding-right: 0; }
+            .hero-bg-right { display: none; }
+            .hero-bg-left { width: 100%; }
+            .module-row.reverse { flex-direction: column; }
+        }
     </style>
 </head>
 <body>
-<div id="root"></div>
 
-<script type="text/babel">
+<div class="noise"></div>
+
+<!-- ========== HEADER ========== -->
+<header>
+    <div class="logo"><i class="lucide-zap"></i><span>SEISMICRISK</span><span class="logo-sub">| TREMOR</span></div>
+    <nav class="nav">
+        <div class="lang"><span class="active">EN</span><span style="color:rgba(139,148,158,0.3)">|</span><span>FR</span></div>
+        <a href="index.html" class="nav-link">Dashboard</a>
+        <a href="#access" class="btn-primary" style="height:42px; padding:0 1.25rem; font-size:0.85rem;">Access Platform <i class="lucide-arrow-right" style="font-size:0.85rem;"></i></a>
+    </nav>
+</header>
+
+<!-- ========== SECTION 1: HERO ========== -->
+<section id="hero">
+    <div class="hero-bg-left"></div>
+    <div class="hero-bg-right">
+        <div class="hero-map-wrap map-rotate">
+            <div class="hero-map-img"></div>
+            <div class="map-dot" style="top:28%; left:47%;"><div class="dot-inner dot-red-inner"><div class="ping-ring ping-ring-red ping"></div></div></div>
+            <div class="map-dot" style="top:32%; left:52%;"><div class="dot-inner dot-amber-inner"><div class="ping-ring ping-ring-amber ping"></div></div></div>
+            <div class="map-dot" style="top:45%; left:65%;"><div class="dot-inner dot-green-inner"></div></div>
+            <div class="map-card" style="top:28%; left:20%; background:rgba(22,27,34,0.95); border-left:4px solid var(--red); transform:rotate(-2deg); max-width:220px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+                    <span style="font-family:'Instrument Sans',sans-serif; font-size:13px; font-weight:700; color:var(--pure);">Tipaza</span>
+                    <span style="font-family:'DM Mono',monospace; font-size:10px; background:rgba(218,54,51,0.2); color:var(--red); padding:0.125rem 0.5rem; border-radius:9999px;">⚠ Alert</span>
+                </div>
+                <div style="font-family:'DM Mono',monospace; font-size:11px; color:var(--fog); margin-bottom:0.5rem;">Zone III · High Risk</div>
+                <div style="margin-top:0.5rem; padding-top:0.5rem; border-top:1px solid rgba(48,54,61,0.5); display:flex; justify-content:space-between;">
+                    <div><div style="font-size:9px; color:var(--fog); text-transform:uppercase;">Exposure</div><div style="font-family:'DM Mono',monospace; font-size:14px; color:var(--red); font-weight:700;">2.5B DZD</div></div>
+                    <div style="text-align:right;"><div style="font-size:9px; color:var(--fog); text-transform:uppercase;">Capacity</div><div style="font-family:'DM Mono',monospace; font-size:14px; color:var(--cloud);">1.0B DZD</div></div>
+                </div>
+            </div>
+            <div class="map-card-teal" style="position:absolute; top:10%; left:56%; padding:0.75rem; transform:rotate(1deg);">
+                <div style="font-size:9px; color:var(--teal); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:0.25rem;">PML Est. (M6.5)</div>
+                <div style="font-family:'DM Mono',monospace; font-size:18px; color:var(--pure); font-weight:700;">3.2B DZD</div>
+                <div style="font-size:9px; color:var(--fog); margin-top:0.25rem;">Algiers Basin</div>
+            </div>
+        </div>
+        <div class="hero-fade-r"></div>
+        <div class="hero-fade-tb"></div>
+    </div>
+    <div class="hero-content">
+        <div class="hero-inner">
+            <div class="tag tag-teal" style="margin-bottom:1.5rem;"><div class="badge-dot pulse"></div>OFFICIAL SOLUTION — GAM ASSURANCE</div>
+            <h1 class="hero-title">You can't manage <br><span class="gradient-text">what you can't see.</span></h1>
+            <p class="hero-desc">SEISMICRISK TREMOR is exclusively developed for GAM Assurance — a seismic risk mapping and control platform designed for Algerian market realities.</p>
+            <div class="hero-cta"><a href="index.html" class="btn-primary">Access Platform <i class="lucide-arrow-right"></i></a><a href="#solution" class="btn-outline">Discover Modules <i class="lucide-chevron-down"></i></a></div>
+            <div class="hero-certs">
+                <p class="cert-label">Certifications &amp; Compliance</p>
+                <div class="cert-badges">
+                    <div class="cert-badge"><i class="lucide-shield-check" style="color:var(--teal);"></i> GAM Assurance</div>
+                    <div class="cert-badge muted"><i class="lucide-file-check" style="color:var(--fog);"></i> ACAPS Compliant</div>
+                    <div class="cert-badge muted"><i class="lucide-map" style="color:var(--fog);"></i> RPA 99 Standard</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <svg class="seismic-wave" viewBox="0 0 1440 80" preserveAspectRatio="none">
+        <path d="M0,40 L50,40 L60,15 L70,65 L80,22 L90,58 L100,40 L250,40 L260,10 L270,70 L280,18 L290,62 L300,40 L500,40 L510,4 L520,76 L530,16 L540,64 L550,40 L800,40 L810,28 L820,52 L830,40 L1100,40 L1110,12 L1120,68 L1130,20 L1140,60 L1150,40 L1440,40" fill="none" stroke="url(#sg)" stroke-width="1.5"/>
+        <defs><linearGradient id="sg" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#39D0D8" stop-opacity="0.2"/><stop offset="50%" stop-color="#39D0D8" stop-opacity="0.8"/><stop offset="100%" stop-color="#39D0D8" stop-opacity="0.2"/></linearGradient></defs>
+    </svg>
+</section>
+
+<!-- ========== SECTION 2: PROBLEM ========== -->
+<section id="problem">
+    <div class="section-inner section-center">
+        <div class="tag tag-red" style="margin-bottom:1rem;">⚠️ THE PROBLEM</div>
+        <h2 class="section-heading" style="max-width:820px; margin:0 auto;">Currently, your portfolio is an Excel file. <br><span class="teal">An earthquake doesn't care about Excel files.</span></h2>
+        <div class="problem-grid">
+            <div class="problem-card"><div class="card-accent" style="background:var(--red);"></div><div class="card-icon red"><svg class="custom-icon" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.5"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/><line x1="18" y1="6" x2="6" y2="18"/></svg></div><div class="card-title">Blind Accumulation</div><p class="card-text">You have contracts across 48 wilayas. Do you know which ones are exceeding your retention limit right now?</p></div>
+            <div class="problem-card amber"><div class="card-accent" style="background:var(--amber);"></div><div class="card-icon amber"><svg class="custom-icon" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/><circle cx="12" cy="16" r="1"/></svg></div><div class="card-title">Reports Take Days</div><p class="card-text">When ACAPS requests your seismic exposure report, your team spends 3 days manually collecting and compiling data.</p></div>
+            <div class="problem-card"><div class="card-accent" style="background:var(--red);"></div><div class="card-icon red"><svg class="custom-icon" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><path d="M12 3v2"/><path d="M8 5.5L6.5 7"/><path d="M16 5.5L17.5 7"/><circle cx="12" cy="12" r="1.5" fill="var(--red)" stroke="var(--red)"/></svg></div><div class="card-title">Earthquakes Don't Wait</div><p class="card-text">When a tremor strikes at 3 AM, how long does it take to identify affected contracts and estimate your net loss?</p></div>
+        </div>
+    </div>
+</section>
+
+<!-- ========== SECTION 3: SOLUTION ========== -->
+<section id="solution">
+    <div class="section-inner-wide">
+        <div class="section-center" style="margin-bottom:4rem;"><div class="tag tag-teal" style="margin-bottom:1rem;">💡 THE SOLUTION</div><h2 class="section-heading">Everything you need to <span class="teal">see, decide, and act.</span></h2></div>
+        <div class="modules">
+            <!-- Module 01 -->
+            <div class="module-row"><div class="module-visual"><div class="mockup"><div class="mockup-inner"><div class="mock-bar"><div class="mock-dot" style="background:var(--red);"></div><div class="mock-dot" style="background:var(--amber);"></div><div class="mock-dot" style="background:var(--green);"></div><div class="mock-label">Risk Map Interface</div></div><div class="mock-body"><div style="position:absolute;inset:0;background:url('https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Algeria_location_map.svg/500px-Algeria_location_map.svg.png') center/contain no-repeat;opacity:0.25;"></div><div style="background:rgba(22,27,34,0.95);border-left:4px solid var(--teal);border-radius:0 0.5rem 0.5rem 0;padding:0.75rem;z-index:2;margin-right:4rem;width:9rem;"><div style="font-size:10px;font-weight:700;color:var(--pure);margin-bottom:0.25rem;">Blida</div><div style="font-size:8px;color:var(--fog);margin-bottom:0.5rem;">Zone III · High Risk</div><div style="height:6px;background:var(--ash);border-radius:9999px;overflow:hidden;"><div style="height:100%;width:85%;background:var(--red);border-radius:9999px;"></div></div><div style="font-size:9px;color:var(--fog);margin-top:0.4rem;">Capacity: 85% used</div></div></div></div></div></div><div class="module-text"><div class="module-tag"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span>MODULE 01</span></div><h3 class="module-title">GIS Risk Map</h3><p class="module-desc">Every contract is placed on an interactive map of Algeria, color-coded by RPA seismic zone. Click any wilaya to instantly view your total exposure.</p><ul class="check-list"><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Real-time choropleth map</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> One-click wilaya exposure details</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Over-concentration hotspot indicators</li></ul></div></div>
+            <!-- Module 02 -->
+            <div class="module-row reverse"><div class="module-visual"><div class="mockup"><div class="mockup-inner" style="display:flex;padding:1.25rem;gap:1rem;"><div style="width:33%;border-right:1px solid var(--ash);padding-right:1rem;display:flex;flex-direction:column;gap:1rem;"><div style="height:8px;width:4rem;background:var(--ash);border-radius:9999px;"></div><div style="height:4px;background:var(--teal);border-radius:9999px;"></div><div style="height:2.5rem;border:1px solid var(--ash);border-radius:0.5rem;margin-top:auto;"></div></div><div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:0.8rem;"><div style="font-size:10px;color:var(--fog);text-transform:uppercase;letter-spacing:0.1em;">Estimated Gross Loss</div><div style="font-family:'DM Mono',monospace;font-size:1.8rem;font-weight:700;color:var(--red);">3.2B DZD</div><div style="height:6rem;background:var(--graphite);border:1px solid var(--ash);border-radius:0.5rem;display:flex;align-items:flex-end;padding:0.5rem;gap:0.25rem;"><div style="flex:1;background:rgba(57,208,216,0.2);height:20%;border-radius:0.25rem;"></div><div style="flex:1;background:rgba(57,208,216,0.4);height:40%;border-radius:0.25rem;"></div><div style="flex:1;background:var(--teal);height:75%;border-radius:0.25rem;"></div><div style="flex:1;background:rgba(57,208,216,0.6);height:55%;border-radius:0.25rem;"></div></div></div></div></div></div><div class="module-text"><div class="module-tag"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><polyline points="23 6 13.5 15.5 8 10 1 18"/><polyline points="17 6 23 6 23 12"/></svg><span>MODULE 02</span></div><h3 class="module-title">PML Simulator</h3><p class="module-desc">Select a zone, choose a magnitude, and SEISMICRISK TREMOR calculates your Probable Maximum Loss (PML) — including reinsurance recovery — in under 2 seconds.</p><ul class="check-list"><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Magnitude scenarios from 4.0 to 8.0</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Contract-level loss breakdown</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Automated reinsurance calculation</li></ul></div></div>
+            <!-- Module 03 -->
+            <div class="module-row"><div class="module-visual"><div class="mockup"><div class="mockup-inner" style="display:flex;flex-direction:column;padding:1.25rem;"><div style="flex:1;border:1px solid var(--ash);border-radius:0.75rem;background:var(--graphite);padding:1rem;display:flex;gap:1rem;"><div style="flex:1;display:flex;flex-direction:column;gap:0.75rem;"><div style="height:0.75rem;width:8rem;background:var(--ash);border-radius:9999px;"></div><div style="height:0.75rem;width:12rem;background:var(--carbon);border-radius:9999px;"></div><div style="height:0.75rem;width:6rem;background:var(--carbon);border-radius:9999px;"></div><div style="display:flex;gap:0.5rem;margin-top:0.5rem;"><div style="width:4rem;height:4rem;background:var(--carbon);border-radius:0.5rem;border:1px solid var(--ash);"></div><div style="width:4rem;height:4rem;background:var(--carbon);border-radius:0.5rem;border:1px solid var(--ash);"></div></div></div><div style="width:120px;background:var(--carbon);border:2px solid rgba(218,54,51,0.3);border-radius:0.75rem;padding:0.75rem;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;"><div style="width:2rem;height:2rem;border-radius:50%;background:rgba(218,54,51,0.1);display:flex;align-items:center;justify-content:center;margin-bottom:0.5rem;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div><div style="font-family:'DM Mono',monospace;font-size:11px;font-weight:700;color:var(--red);margin-bottom:0.25rem;">REJECTED</div><div style="font-size:8px;color:var(--fog);line-height:1.4;">Exceeds Zone III retention limit</div></div></div></div></div></div><div class="module-text"><div class="module-tag"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg><span>MODULE 03</span></div><h3 class="module-title">Underwriting Assistant</h3><p class="module-desc">When a broker submits a new contract, SEISMICRISK instantly checks remaining retention capacity and provides an immediate decision: Accept, Reject, or Accept with conditions.</p><ul class="check-list"><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Automated zone capacity check</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Vulnerability scoring by building type</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Premium and condition suggestions</li></ul></div></div>
+            <!-- Module 04 -->
+            <div class="module-row reverse"><div class="module-visual"><div class="mockup"><div class="mockup-inner" style="display:flex;align-items:center;justify-content:center;padding:1.25rem;"><div style="width:75%;height:90%;background:white;border-radius:0.75rem;box-shadow:0 20px 60px rgba(0,0,0,0.5);display:flex;flex-direction:column;padding:1.25rem;position:relative;border:1px solid #e5e7eb;"><div style="position:absolute;top:0.75rem;right:0.75rem;font-size:9px;font-weight:700;color:var(--teal);border:1px solid var(--teal);padding:0.125rem 0.5rem;border-radius:9999px;background:rgba(57,208,216,0.1);">ACAPS</div><div style="height:8px;width:5rem;background:rgba(0,0,0,0.15);border-radius:9999px;margin-bottom:1rem;"></div><div style="height:1.25rem;width:10rem;background:rgba(0,0,0,0.75);border-radius:0.5rem;margin:0 auto 1.5rem;"></div><div style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1rem;"><div style="height:7px;background:rgba(0,0,0,0.12);border-radius:9999px;"></div><div style="height:7px;background:rgba(0,0,0,0.12);border-radius:9999px;"></div><div style="height:7px;width:75%;background:rgba(0,0,0,0.12);border-radius:9999px;"></div></div><div style="width:100%;height:3.5rem;border:1px solid rgba(0,0,0,0.15);border-radius:0.5rem;margin-top:auto;display:flex;"><div style="width:33%;border-right:1px solid rgba(0,0,0,0.15);"></div><div style="flex:1;"></div></div></div></div></div></div><div class="module-text"><div class="module-tag"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg><span>MODULE 04</span></div><h3 class="module-title">Regulatory Reports</h3><p class="module-desc">The regulator visits. Your team clicks one button. A complete, formatted seismic exposure report, compliant with ACAPS requirements, is ready to print.</p><ul class="check-list"><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> 100% ACAPS compliant format</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> French or Arabic document output</li><li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Always reflects real-time portfolio data</li></ul></div></div>
+        </div>
+    </div>
+</section>
+
+<!-- ========== SECTION 4: METRICS ========== -->
+<section id="metrics">
+    <div class="section-inner section-center">
+        <p style="font-size:0.875rem;color:var(--fog);text-transform:uppercase;letter-spacing:0.2em;margin-bottom:4rem;">Designed for Algerian insurance realities</p>
+        <div class="metrics-row"><div><div class="metric-num">48</div><div class="metric-label">Wilayas mapped</div></div><div><div class="metric-num">&lt; 2s</div><div class="metric-label">Average simulation time</div></div><div><div class="metric-num">5</div><div class="metric-label">RPA seismic zones</div></div></div>
+        <div class="divider"></div>
+        <blockquote>"Risk accumulation is invisible until it becomes catastrophic. The question is not whether an earthquake will happen, but whether you'll be ready."</blockquote>
+        <div class="quote-attr">— Major Risks Department, GAM Assurance</div>
+    </div>
+</section>
+
+<!-- ========== SECTION 5: FEATURES ========== -->
+<section id="features">
+    <div class="section-inner">
+        <div class="section-center" style="margin-bottom:2rem;"><div class="tag tag-teal" style="margin-bottom:1rem;">🔲 20 FEATURES</div><h2 class="section-heading">Nothing is missing.</h2></div>
+        <div class="feature-grid" id="featureGrid"></div>
+    </div>
+</section>
+
+<!-- ========== SECTION 6: HOW IT WORKS ========== -->
+<section id="how">
+    <div class="section-inner">
+        <div class="section-center" style="margin-bottom:3rem;"><div class="tag tag-teal" style="margin-bottom:1rem;">🔄 INTEGRATION PROCESS</div><h2 class="section-heading">Operational in less than a week.</h2></div>
+        <div class="steps"><div class="step"><div class="step-num active">1</div><div class="step-title">Import</div><p class="step-desc">Import your existing portfolio data. Automatic RPA zone association.</p></div><div class="step"><div class="step-num inactive">2</div><div class="step-title">Configure</div><p class="step-desc">Define your zone retention capacities and configure user access.</p></div><div class="step"><div class="step-num inactive">3</div><div class="step-title">Operate</div><p class="step-desc">Visualize your exposure. Run scenarios. Generate reports. Decide with confidence.</p></div></div>
+    </div>
+</section>
+
+<!-- ========== SECTION 7: ACCESS ========== -->
+<section id="access">
+    <div class="access-card">
+        <div class="access-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="1.5">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                <circle cx="12" cy="16" r="1"/>
+                <line x1="12" y1="16" x2="12" y2="19"/>
+            </svg>
+        </div>
+        <h2 class="access-title">Secure Access</h2>
+        <p class="access-desc">SEISMICRISK TREMOR is GAM Assurance's seismic exposure command center. Access is strictly reserved for authorized personnel.</p>
+
+        <form id="accessForm" onsubmit="return false;">
+            <div class="form-group">
+                <label>Company Name</label>
+                <input type="text" id="companyName" placeholder="e.g. GAM Assurance" />
+            </div>
+            <div class="form-group">
+                <label>Employee ID / Email</label>
+                <input type="email" id="employeeEmail" placeholder="name@gam-assurance.dz" />
+            </div>
+            <div class="form-group">
+                <label>Access Code</label>
+                <input type="password" id="accessCode" placeholder="Enter your secure code" />
+            </div>
+            <button type="submit" id="accessBtn">Access Platform →</button>
+            <div id="errorMessage" class="error-message"></div>
+        </form>
+
+        <hr class="access-divider">
+        <div class="access-note">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--fog)" stroke-width="2">
+                <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+                <line x1="12" y1="18" x2="12" y2="18"/>
+            </svg>
+            Login issues? Contact IT Department:
+            <a href="mailto:support.it@gam-assurance.dz">support.it@gam-assurance.dz</a>
+        </div>
+    </div>
+</section>
+<!-- ========== FOOTER ========== -->
+<footer>
+    <div class="footer-grid">
+        <div><div class="footer-logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><polygon points="13 2 3 7 3 17 13 22 23 17 23 7 13 2"/><line x1="3" y1="7" x2="13" y2="12"/><line x1="13" y1="22" x2="13" y2="12"/><line x1="23" y1="7" x2="13" y2="12"/></svg><span class="footer-logo-text">SEISMICRISK</span><span class="footer-logo-sub">| TREMOR</span></div><p class="footer-desc">Major Risks Management Department<br>Seismic Intelligence System.</p><div class="craag-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><circle cx="12" cy="12" r="2"/><path d="M12 2a10 10 0 0 0 0 20 10 10 0 0 0 0-20z"/><path d="M12 6a6 6 0 0 0 0 12 6 6 0 0 0 0-12z"/></svg>CRAAG Connected</div></div>
+        <div><div class="footer-heading">Internal Links</div><ul class="footer-links"><li><a href="index.html">Dashboard Home</a></li><li><a href="map.html">Risk Map</a></li><li><a href="portfolio.html">Portfolio</a></li><li><a href="pml.html">PML Simulator</a></li><li><a href="opportunities.html">Opportunities</a></li><li><a href="report.html">Monthly Report</a></li><li><a href="acaps.html">ACAPS Report</a></li></ul></div>
+        <div><div class="footer-heading">Compliance</div><ul class="footer-links"><li><a href="#">RPA 99 Standards</a></li><li><a href="#">ACAPS Regulations</a></li><li><a href="#">IS Security Policy</a></li><li><a href="#">Data Confidentiality</a></li></ul></div>
+    </div>
+    <div class="footer-bottom"><p class="footer-copy">© 2026 GAM Assurance — SEISMICRISK TREMOR. Platform exclusively developed for internal use.</p><p class="footer-copy"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Algiers, Algeria 🇩🇿</p></div>
+</footer>
+
+<script>
+    // ========== FEATURES DATA ==========
     const FEATURES = [
-      "Real-time exposure monitoring by wilaya",
-      "Monte Carlo simulation engine (PML)",
-      "Automated ACAPS regulatory reports",
-      "RPA 99 zone classification mapping",
-      "Underwriting capacity limit verification",
-      "Automatic vulnerability assessment",
-      "Live CRAAG seismic API integration",
-      "Portfolio balance index calculation",
-      "Net loss modeling (reinsurance)",
-      "Contract-level geographic exploration",
-      "Zone III over-concentration alerts",
-      "Historical risk trend visualization",
-      "Interactive choropleth GIS mapping",
-      "Multi-lingual document export (FR/AR)",
-      "Role-based access (Manager/Underwriter)",
-      "Complete system audit log",
-      "Customizable capacity alert thresholds",
-      "Impact scenario builder (What-if)",
-      "Bulk portfolio import (CSV/Excel)",
-      "Automated strategic recommendations"
+        "Real-time exposure monitoring by wilaya", "Monte Carlo simulation engine (PML)",
+        "Automated ACAPS regulatory reports", "RPA 99 zone classification mapping",
+        "Underwriting capacity limit verification", "Automatic vulnerability assessment",
+        "Live CRAAG seismic API integration", "Portfolio balance index calculation",
+        "Net loss modeling (reinsurance)", "Contract-level geographic exploration",
+        "Zone III over-concentration alerts", "Historical risk trend visualization",
+        "Interactive choropleth GIS mapping", "Multi-lingual document export (FR/AR)",
+        "Role-based access (Manager/Underwriter)", "Complete system audit log",
+        "Customizable capacity alert thresholds", "Impact scenario builder (What-if)",
+        "Bulk portfolio import (CSV/Excel)", "Automated strategic recommendations"
     ];
 
-    const Landing = () => {
-      return (
-        <div className="min-h-screen bg-slate text-cloud relative selection:bg-teal/30 selection:text-teal overflow-x-hidden" data-name="landing-page">
-
-          <div className="fixed inset-0 noise-bg z-40 pointer-events-none"></div>
-
-          <header className="absolute top-0 left-0 w-full px-6 md:px-12 py-6 z-50 flex justify-between items-center backdrop-blur-sm bg-slate/50">
-            <div className="font-mono text-xl md:text-2xl font-bold tracking-tighter text-pure flex items-center gap-2">
-              <i className="lucide-zap text-teal text-xl"></i>
-              <span className="bg-gradient-to-r from-pure to-teal bg-clip-text text-transparent">SEISMICRISK</span>
-              <span className="text-xs text-fog font-normal ml-1 hidden md:inline">| TREMOR</span>
-            </div>
-            <div className="flex gap-4 md:gap-6 items-center">
-              <div className="font-sans text-sm text-fog flex gap-3 mr-2">
-                <span className="text-teal font-bold cursor-pointer">EN</span>
-                <span className="text-fog/30">|</span>
-                <span className="hover:text-pure cursor-pointer">FR</span>
-              </div>
-              <a href="index.html" className="font-sans text-sm text-fog hover:text-pure hidden sm:block">Dashboard</a>
-              <a href="#access" className="btn-primary h-[38px] md:h-[44px] px-4 md:px-6 text-sm shadow-lg hover:shadow-teal/20 transition-all">
-                Access Platform
-                <i className="lucide-arrow-right ml-2 text-sm"></i>
-              </a>
-            </div>
-          </header>
-
-          {/* SECTION 1 - HERO */}
-          <section className="relative w-full min-h-screen flex items-center overflow-hidden pt-20">
-            <div className="absolute inset-0 flex">
-              <div className="w-full md:w-[55%] bg-slate relative z-10"></div>
-              <div className="hidden md:block w-[45%] bg-gradient-to-br from-carbon to-slate relative border-l border-ash/30">
-                <div className="absolute inset-0 map-rotate origin-center opacity-60">
-                  <div className="absolute inset-0 bg-[url('https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Algeria_location_map.svg/1024px-Algeria_location_map.svg.png')] bg-contain bg-no-repeat bg-center opacity-30 filter grayscale"></div>
-                  <div className="absolute top-[28%] left-[47%]"><div className="w-4 h-4 bg-red rounded-full shadow-[0_0_25px_rgba(218,54,51,1)]"><div className="animate-ping absolute inset-0 rounded-full bg-red opacity-75"></div></div></div>
-                  <div className="absolute top-[32%] left-[52%]"><div className="w-3 h-3 bg-amber rounded-full shadow-[0_0_20px_rgba(210,153,34,1)]"><div className="animate-ping absolute inset-0 rounded-full bg-amber opacity-75"></div></div></div>
-                  <div className="absolute top-[45%] left-[65%]"><div className="w-2.5 h-2.5 bg-green rounded-full shadow-[0_0_15px_rgba(46,160,67,1)]"></div></div>
-                  <div className="absolute top-[30%] left-[22%] bg-carbon/95 backdrop-blur border-l-4 border-red rounded-r-lg p-3 shadow-xl max-w-[260px] transform -rotate-2">
-                    <div className="flex justify-between items-center mb-2"><div className="font-sans text-[13px] font-bold text-pure">Tipaza</div><div className="font-mono text-[10px] bg-red/20 text-red px-2 py-0.5 rounded-full">⚠ Alert</div></div>
-                    <div className="font-mono text-[11px] text-fog mb-2">Zone III · High Risk</div>
-                    <div className="mt-2 pt-2 border-t border-ash/50 flex justify-between"><div><div className="text-[9px] font-sans text-fog uppercase">Exposure</div><div className="font-mono text-[14px] text-red font-bold">2.5B DZD</div></div><div className="text-right"><div className="text-[9px] font-sans text-fog uppercase">Capacity</div><div className="font-mono text-[14px] text-cloud">1.0B DZD</div></div></div>
-                  </div>
-                  <div className="absolute top-[12%] left-[58%] bg-carbon/95 backdrop-blur border border-teal/30 rounded-lg p-3 shadow-xl transform rotate-1"><div className="text-[9px] font-sans text-teal uppercase tracking-wider mb-1">PML Est. (M6.5)</div><div className="font-mono text-[18px] text-pure font-bold">3.2B DZD</div><div className="text-[9px] text-fog mt-1">Algiers Basin</div></div>
-                </div>
-                <div className="absolute inset-0 bg-gradient-to-r from-slate via-transparent to-transparent"></div>
-                <div className="absolute inset-0 bg-gradient-to-t from-slate via-transparent to-slate opacity-80"></div>
-              </div>
-            </div>
-            <div className="max-w-[1440px] w-full mx-auto px-6 md:px-12 relative z-20 flex">
-              <div className="w-full md:w-[55%] pr-0 md:pr-12 lg:pr-24">
-                <div className="inline-flex items-center gap-2 bg-teal/10 border border-teal/20 rounded-full px-5 py-2 mb-6"><div className="w-2 h-2 rounded-full bg-teal animate-pulse"></div><span className="font-mono text-[11px] font-semibold text-teal tracking-wider whitespace-nowrap">OFFICIAL SOLUTION — GAM ASSURANCE</span></div>
-                <h1 className="text-[42px] md:text-[56px] lg:text-[68px] font-mono font-bold text-pure leading-[1.1] mb-6">You can&#39;t manage <br/><span className="text-teal bg-gradient-to-r from-teal to-blue-600 bg-clip-text text-transparent">what you can&#39;t see.</span></h1>
-                <p className="font-sans text-[16px] md:text-[18px] lg:text-[20px] text-cloud leading-relaxed max-w-[500px] mb-10">SEISMICRISK TREMOR is exclusively developed for GAM Assurance — a seismic risk mapping and control platform designed for Algerian market realities.</p>
-                <div className="flex flex-col sm:flex-row gap-4 mb-16">
-                  <a href="index.html" className="btn-primary group">Access Platform<i className="lucide-arrow-right ml-2 group-hover:translate-x-1 transition-transform"></i></a>
-                  <a href="#solution" className="btn-outline group">Discover Modules<i className="lucide-chevron-down ml-2 group-hover:translate-y-1 transition-transform"></i></a>
-                </div>
-                <div className="pt-8 border-t border-ash max-w-[500px]">
-                  <p className="font-sans text-[11px] text-fog mb-4 uppercase tracking-wider">Certifications &amp; Compliance</p>
-                  <div className="flex flex-wrap gap-3 items-center">
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-graphite to-carbon border border-ash rounded-lg font-sans text-sm text-pure font-medium"><i className="lucide-shield-check text-teal text-sm"></i> GAM Assurance</div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-graphite border border-ash rounded-lg font-sans text-sm text-cloud"><i className="lucide-file-check text-fog text-sm"></i> ACAPS Compliant</div>
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-graphite border border-ash rounded-lg font-sans text-sm text-cloud"><i className="lucide-map text-fog text-sm"></i> RPA 99 Standard</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="absolute bottom-0 left-0 w-full h-[100px] overflow-hidden z-10 pointer-events-none">
-              <svg viewBox="0 0 1440 100" preserveAspectRatio="none" className="w-full h-full"><path d="M0,50 L50,50 L60,20 L70,80 L80,30 L90,70 L100,50 L250,50 L260,15 L270,85 L280,25 L290,75 L300,50 L500,50 L510,5 L520,95 L530,20 L540,80 L550,50 L800,50 L810,35 L820,65 L830,50 L1100,50 L1110,15 L1120,85 L1130,25 L1140,75 L1150,50 L1440,50" fill="none" stroke="url(#waveGradient)" strokeWidth="2"/><defs><linearGradient id="waveGradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#39D0D8" stopOpacity="0.3"/><stop offset="50%" stopColor="#39D0D8" stopOpacity="0.8"/><stop offset="100%" stopColor="#39D0D8" stopOpacity="0.3"/></linearGradient></defs></svg>
-            </div>
-          </section>
-
-          {/* SECTION 2 - THE PROBLEM */}
-          <section className="py-24 px-6 md:px-12 bg-slate relative">
-            <div className="max-w-[1100px] mx-auto text-center">
-              <div className="inline-flex items-center gap-2 bg-red/10 border border-red/20 rounded-full px-4 py-1.5 mb-4"><i className="lucide-alert-triangle text-red text-xs"></i><span className="font-mono text-[11px] font-semibold text-red tracking-wider">THE PROBLEM</span></div>
-              <h2 className="text-[28px] md:text-[36px] lg:text-[44px] font-mono font-bold text-pure leading-tight mb-16 max-w-[850px] mx-auto">Currently, your portfolio is an Excel file. <br/><span className="text-teal">An earthquake doesn&#39;t care about Excel files.</span></h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
-                <div className="bg-gradient-to-br from-graphite to-carbon border border-ash rounded-xl p-6 relative overflow-hidden group hover:border-red/30 transition-all duration-300"><div className="absolute top-0 left-0 w-1 h-full bg-red transition-all duration-300 group-hover:w-1.5"></div><div className="w-12 h-12 rounded-xl bg-red/10 flex items-center justify-center mb-5"><i className="lucide-folder-search text-red text-2xl"></i></div><h3 className="font-sans text-lg font-bold text-pure mb-3">Blind Accumulation</h3><p className="font-sans text-sm text-fog leading-relaxed">You have contracts across 48 wilayas. Do you know which ones are exceeding your retention limit right now?</p></div>
-                <div className="bg-gradient-to-br from-graphite to-carbon border border-ash rounded-xl p-6 relative overflow-hidden group hover:border-amber/30 transition-all duration-300"><div className="absolute top-0 left-0 w-1 h-full bg-amber transition-all duration-300 group-hover:w-1.5"></div><div className="w-12 h-12 rounded-xl bg-amber/10 flex items-center justify-center mb-5"><i className="lucide-clock text-amber text-2xl"></i></div><h3 className="font-sans text-lg font-bold text-pure mb-3">Reports Take Days</h3><p className="font-sans text-sm text-fog leading-relaxed">When ACAPS requests your seismic exposure report, your team spends 3 days manually collecting and compiling data.</p></div>
-                <div className="bg-gradient-to-br from-graphite to-carbon border border-ash rounded-xl p-6 relative overflow-hidden group hover:border-red/30 transition-all duration-300"><div className="absolute top-0 left-0 w-1 h-full bg-red transition-all duration-300 group-hover:w-1.5"></div><div className="w-12 h-12 rounded-xl bg-red/10 flex items-center justify-center mb-5"><i className="lucide-activity text-red text-2xl"></i></div><h3 className="font-sans text-lg font-bold text-pure mb-3">Earthquakes Don&#39;t Wait</h3><p className="font-sans text-sm text-fog leading-relaxed">When a tremor strikes at 3 AM, how long does it take to identify affected contracts and estimate your net loss?</p></div>
-              </div>
-            </div>
-          </section>
-
-          {/* SECTION 3 - THE SOLUTION */}
-          <section id="solution" className="py-24 px-6 md:px-12 bg-gradient-to-b from-[#0B0E14] to-slate border-y border-ash">
-            <div className="max-w-[1200px] mx-auto">
-              <div className="text-center mb-20">
-                <div className="inline-flex items-center gap-2 bg-teal/10 border border-teal/20 rounded-full px-4 py-1.5 mb-4">
-                  <i className="lucide-lightbulb text-teal text-xs"></i>
-                  <span className="font-mono text-[11px] font-semibold text-teal tracking-wider">THE SOLUTION</span>
-                </div>
-                <h2 className="text-[28px] md:text-[36px] lg:text-[44px] font-mono font-bold text-pure">
-                  Everything you need to <span className="text-teal">see, decide, and act.</span>
-                </h2>
-              </div>
-              <div className="space-y-32">
-                <div className="flex flex-col md:flex-row items-center gap-12 lg:gap-20">
-                  <div className="w-full md:w-1/2">
-                    <div className="bg-slate border border-ash rounded-2xl p-2"><div className="bg-carbon rounded-xl border border-ash aspect-[4/3] relative overflow-hidden"><div className="absolute top-0 left-0 right-0 h-8 bg-graphite border-b border-ash flex items-center px-4 gap-2"><div className="w-3 h-3 rounded-full bg-red"></div><div className="w-3 h-3 rounded-full bg-amber"></div><div className="w-3 h-3 rounded-full bg-green"></div><div className="ml-4 text-[10px] text-fog font-mono">Risk Map Interface</div></div><div className="h-full bg-gradient-to-br from-carbon to-slate relative overflow-hidden flex items-center justify-center pt-8"><div className="absolute inset-0 opacity-30 bg-[url('https://upload.wikimedia.org/wikipedia/commons/thumb/c/cf/Algeria_location_map.svg/500px-Algeria_location_map.svg.png')] bg-contain bg-no-repeat bg-center"></div><div className="w-36 h-28 bg-carbon/95 border-l-4 border-teal rounded-lg p-3 shadow-2xl z-10 mr-16"><div className="text-[10px] font-bold text-pure mb-1">Blida</div><div className="text-[8px] text-fog mb-2">Zone III · High Risk</div><div className="h-1.5 w-full bg-ash rounded-full mb-1 overflow-hidden"><div className="h-full bg-red rounded-full w-[85%]"></div></div><div className="text-[9px] text-fog mt-2">Capacity: 85% used</div></div></div></div></div>
-                  </div>
-                  <div className="w-full md:w-1/2">
-                    <div className="inline-flex items-center gap-2 bg-teal/10 rounded-full px-3 py-1 mb-4"><i className="lucide-map-pin text-teal text-xs"></i><span className="font-mono text-[10px] font-bold text-teal">MODULE 01</span></div>
-                    <h3 className="text-2xl md:text-3xl font-mono font-bold text-pure mb-4 leading-tight">GIS Risk Map</h3>
-                    <p className="font-sans text-base text-fog leading-relaxed mb-6">Every contract is placed on an interactive map of Algeria, color-coded by RPA seismic zone. Click any wilaya to instantly view your total exposure.</p>
-                    <ul className="space-y-3 font-sans text-sm text-cloud">
-                      <li className="flex items-center gap-3"><i className="lucide-check-circle text-teal text-sm"></i> Real-time choropleth map</li>
-                      <li className="flex items-center gap-3"><i className="lucide-check-circle text-teal text-sm"></i> One-click wilaya exposure details</li>
-                      <li className="flex items-center gap-3"><i className="lucide-check-circle text-teal text-sm"></i> Over-concentration hotspot indicators</li>
-                    </ul>
-                  </div>
-                </div>
-                <div className="flex flex-col md:flex-row-reverse items-center gap-12 lg:gap-20">
-                  <div className="w-full md:w-1/2">
-                    <div className="bg-slate border border-ash rounded-2xl p-2"><div className="bg-carbon rounded-xl border border-ash aspect-[4/3] relative overflow-hidden flex p-5 gap-4"><div className="w-1/3 border-r border-ash pr-4 flex flex-col gap-4"><div className="h-2 w-16 bg-ash rounded-full"></div><div className="h-1 w-full bg-teal rounded-full"></div><div className="h-10 w-full border border-ash rounded-lg mt-auto"></div></div><div className="flex-1 flex flex-col justify-center gap-4"><div className="text-[10px] text-fog uppercase tracking-wider">Estimated Gross Loss</div><div className="text-3xl font-mono font-bold text-red">3.2B DZD</div><div className="h-28 w-full bg-graphite border border-ash rounded-lg flex items-end p-2 gap-1"><div className="flex-1 bg-teal/20 h-[20%] rounded"></div><div className="flex-1 bg-teal/40 h-[40%] rounded"></div><div className="flex-1 bg-teal h-[75%] rounded"></div><div className="flex-1 bg-teal/60 h-[55%] rounded"></div></div></div></div></div>
-                  </div>
-                  <div className="w-full md:w-1/2">
-                    <div className="inline-flex items-center gap-2 bg-teal/10 rounded-full px-3 py-1 mb-4"><i className="lucide-chart-line text-teal text-xs"></i><span className="font-mono text-[10px] font-bold text-teal">MODULE 02</span></div>
-                    <h3 className="text-2xl md:text-3xl font-mono font-bold text-pure mb-4 leading-tight">PML Simulator</h3>
-                    <p className="font-sans text-base text-fog leading-relaxed mb-6">Select a zone, choose a magnitude, and SEISMICRISK TREMOR calculates your Probable Maximum Loss (PML) — including reinsurance recovery — in under 2 seconds.</p>
-                    <ul className="space-y-3 font-sans text-sm text-cloud">
-                      <li className="flex items-center gap-3"><i className="lucide-check-circle text-teal text-sm"></i> Magnitude scenarios from 4.0 to 8.0</li>
-                      <li className="flex items-center gap-3"><i className="lucide-check-circle text-teal text-sm"></i> Contract-level loss breakdown</li>
-                      <li className="flex items-center gap-3"><i className="lucide-check-circle text-teal text-sm"></i> Automated reinsurance calculation</li>
-                    </ul>
-                  </div>
-                </div>
-                <div className="flex flex-col md:flex-row items-center gap-12 lg:gap-20">
-                  <div className="w-full md:w-1/2">
-                    <div className="bg-slate border border-ash rounded-2xl p-2"><div className="bg-carbon rounded-xl border border-ash aspect-[4/3] relative overflow-hidden flex flex-col p-5"><div className="flex-1 border border-ash rounded-xl bg-graphite p-4 flex gap-4"><div className="flex-1 space-y-3"><div className="h-3 w-32 bg-ash rounded-full"></div><div className="h-3 w-48 bg-carbon rounded-full"></div><div className="h-3 w-24 bg-carbon rounded-full"></div><div className="mt-4 flex gap-2"><div className="w-16 h-16 bg-carbon rounded-lg border border-ash"></div><div className="w-16 h-16 bg-carbon rounded-lg border border-ash"></div></div></div><div className="w-[130px] bg-carbon border-2 border-red/30 rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-lg"><div className="w-8 h-8 rounded-full bg-red/10 flex items-center justify-center mb-2"><i className="lucide-x text-red text-sm"></i></div><div className="text-[11px] font-mono font-bold text-red mb-1">REJECTED</div><div className="text-[8px] text-fog leading-tight">Exceeds Zone III retention limit</div></div></div></div></div>
-                  </div>
-                  <div className="w-full md:w-1/2">
-                    <div className="inline-flex items-center gap-2 bg-teal/10 rounded-full px-3 py-1 mb-4"><i className="lucide-clipboard-list text-teal text-xs"></i><span className="font-mono text-[10px] font-bold text-teal">MODULE 03</span></div>
-                    <h3 className="text-2xl md:text-3xl font-mono font-bold text-pure mb-4 leading-tight">Underwriting Assistant</h3>
-                    <p className="font-sans text-base text-fog leading-relaxed mb-6">When a broker submits a new contract, SEISMICRISK instantly checks remaining retention capacity and provides an immediate decision: Accept, Reject, or Accept with conditions.</p>
-                    <ul className="space-y-3 font-sans text-sm text-cloud">
-                      <li className="flex items-center gap-3"><i className="lucide-check-circle text-teal text-sm"></i> Automated zone capacity check</li>
-                      <li className="flex items-center gap-3"><i className="lucide-check-circle text-teal text-sm"></i> Vulnerability scoring by building type</li>
-                      <li className="flex items-center gap-3"><i className="lucide-check-circle text-teal text-sm"></i> Premium and condition suggestions</li>
-                    </ul>
-                  </div>
-                </div>
-                <div className="flex flex-col md:flex-row-reverse items-center gap-12 lg:gap-20">
-                  <div className="w-full md:w-1/2">
-                    <div className="bg-slate border border-ash rounded-2xl p-2"><div className="bg-carbon rounded-xl border border-ash aspect-[4/3] relative overflow-hidden flex items-center justify-center p-5"><div className="w-3/4 h-full bg-pure rounded-xl shadow-2xl flex flex-col p-5 relative border border-gray-200"><div className="absolute top-3 right-3 text-teal text-[9px] font-bold border border-teal px-2 py-0.5 rounded-full bg-teal/10">ACAPS</div><div className="h-2 w-20 bg-slate/20 rounded-full mb-4"></div><div className="h-5 w-40 bg-slate/80 rounded-lg mx-auto mb-6"></div><div className="space-y-3 mb-5"><div className="h-2 w-full bg-slate/20 rounded-full"></div><div className="h-2 w-full bg-slate/20 rounded-full"></div><div className="h-2 w-3/4 bg-slate/20 rounded-full"></div></div><div className="w-full h-14 border border-slate/20 rounded-lg mt-auto flex"><div className="w-1/3 border-r border-slate/20"></div><div className="flex-1"></div></div></div></div></div>
-                  </div>
-                  <div className="w-full md:w-1/2">
-                    <div className="inline-flex items-center gap-2 bg-teal/10 rounded-full px-3 py-1 mb-4"><i className="lucide-file-text text-teal text-xs"></i><span className="font-mono text-[10px] font-bold text-teal">MODULE 04</span></div>
-                    <h3 className="text-2xl md:text-3xl font-mono font-bold text-pure mb-4 leading-tight">Regulatory Reports</h3>
-                    <p className="font-sans text-base text-fog leading-relaxed mb-6">The regulator visits. Your team clicks one button. A complete, formatted seismic exposure report, compliant with ACAPS requirements, is ready to print.</p>
-                    <ul className="space-y-3 font-sans text-sm text-cloud">
-                      <li className="flex items-center gap-3"><i className="lucide-check-circle text-teal text-sm"></i> 100% ACAPS compliant format</li>
-                      <li className="flex items-center gap-3"><i className="lucide-check-circle text-teal text-sm"></i> French or Arabic document output</li>
-                      <li className="flex items-center gap-3"><i className="lucide-check-circle text-teal text-sm"></i> Always reflects real-time portfolio data</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* SECTION 4 - METRICS */}
-          <section className="py-20 px-6 md:px-12 bg-slate border-b border-ash relative">
-            <div className="max-w-[1000px] mx-auto text-center">
-              <h3 className="font-sans text-sm text-fog uppercase tracking-widest mb-16">Designed for Algerian insurance realities</h3>
-              <div className="flex flex-col md:flex-row justify-center gap-12 md:gap-24 mb-20">
-                <div className="group"><div className="font-mono text-5xl md:text-6xl font-light text-teal leading-none mb-2 group-hover:scale-110 transition-transform inline-block">48</div><div className="font-sans text-sm text-fog mt-2">Wilayas mapped</div></div>
-                <div className="group"><div className="font-mono text-5xl md:text-6xl font-light text-teal leading-none mb-2 group-hover:scale-110 transition-transform inline-block">&lt; 2s</div><div className="font-sans text-sm text-fog mt-2">Average simulation time</div></div>
-                <div className="group"><div className="font-mono text-5xl md:text-6xl font-light text-teal leading-none mb-2 group-hover:scale-110 transition-transform inline-block">5</div><div className="font-sans text-sm text-fog mt-2">RPA seismic zones</div></div>
-              </div>
-              <div className="w-24 h-px bg-gradient-to-r from-transparent via-teal to-transparent mx-auto mb-12"></div>
-              <div className="max-w-[700px] mx-auto">
-                <p className="font-sans text-xl md:text-2xl text-pure italic leading-relaxed mb-6">"Risk accumulation is invisible until it becomes catastrophic. The question is not whether an earthquake will happen, but whether you&#39;ll be ready."</p>
-                <div className="font-sans text-xs text-fog uppercase tracking-wider">— Major Risks Department, GAM Assurance</div>
-              </div>
-            </div>
-          </section>
-
-          {/* SECTION 5 - FEATURE LIST */}
-          <section className="py-20 px-6 md:px-12 bg-gradient-to-b from-[#0B0E14] to-slate">
-            <div className="max-w-[1000px] mx-auto">
-              <div className="text-center mb-12">
-                <div className="inline-flex items-center gap-2 bg-teal/10 border border-teal/20 rounded-full px-4 py-1.5 mb-4"><i className="lucide-grid text-teal text-xs"></i><span className="font-mono text-[11px] font-semibold text-teal tracking-wider">20 FEATURES</span></div>
-                <h2 className="text-2xl md:text-3xl font-mono font-bold text-pure">Nothing is missing.</h2>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-3">
-                {FEATURES.map((feature, idx) => (
-                  <div key={idx} className="flex items-center gap-4 py-3 border-b border-ash/30 group hover:border-teal/30 transition-all">
-                    <div className="font-mono text-sm text-teal w-8 shrink-0 opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all">{(idx + 1).toString().padStart(2, '0')}</div>
-                    <div className="font-sans text-sm text-cloud group-hover:text-pure transition-colors">{feature}</div>
-                    <i className="lucide-check-circle text-teal/30 group-hover:text-teal transition-all ml-auto text-sm"></i>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          {/* SECTION 6 - HOW IT WORKS */}
-          <section className="py-20 px-6 md:px-12 bg-slate border-y border-ash">
-            <div className="max-w-[1000px] mx-auto">
-              <div className="text-center mb-12">
-                <div className="inline-flex items-center gap-2 bg-teal/10 border border-teal/20 rounded-full px-4 py-1.5 mb-4"><i className="lucide-infinity text-teal text-xs"></i><span className="font-mono text-[11px] font-semibold text-teal tracking-wider">INTEGRATION PROCESS</span></div>
-                <h2 className="text-2xl md:text-3xl font-mono font-bold text-pure">Operational in less than a week.</h2>
-              </div>
-              <div className="flex flex-col md:flex-row relative">
-                <div className="hidden md:block absolute top-[30px] left-[10%] right-[10%] h-px bg-gradient-to-r from-transparent via-teal/30 to-transparent z-0"></div>
-                <div className="flex-1 relative z-10 flex flex-col items-center text-center px-4 mb-10 md:mb-0 group">
-                  <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-br from-teal to-blue-600 flex items-center justify-center text-2xl font-bold text-white mb-4 shadow-lg group-hover:scale-110 transition-transform">1</div>
-                  <h3 className="font-sans text-lg font-bold text-pure mb-2">Import</h3>
-                  <p className="font-sans text-sm text-fog leading-relaxed">Import your existing portfolio data. Automatic RPA zone association.</p>
-                </div>
-                <div className="flex-1 relative z-10 flex flex-col items-center text-center px-4 mb-10 md:mb-0 group">
-                  <div className="w-16 h-16 mx-auto rounded-full bg-carbon border-2 border-ash flex items-center justify-center font-mono text-xl text-cloud font-bold mb-5 group-hover:border-teal group-hover:text-teal transition-all">2</div>
-                  <h3 className="font-sans text-lg font-bold text-pure mb-2">Configure</h3>
-                  <p className="font-sans text-sm text-fog leading-relaxed">Define your zone retention capacities and configure user access.</p>
-                </div>
-                <div className="flex-1 relative z-10 flex flex-col items-center text-center px-4 group">
-                  <div className="w-16 h-16 mx-auto rounded-full bg-carbon border-2 border-ash flex items-center justify-center font-mono text-xl text-cloud font-bold mb-5 group-hover:border-teal group-hover:text-teal transition-all">3</div>
-                  <h3 className="font-sans text-lg font-bold text-pure mb-2">Operate</h3>
-                  <p className="font-sans text-sm text-fog leading-relaxed">Visualize your exposure. Run scenarios. Generate reports. Decide with confidence.</p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* SECTION 7 - ACCESS */}
-          <section id="access" className="py-20 px-6 md:px-12 bg-gradient-to-br from-[#0A0D12] to-carbon">
-            <div className="max-w-[500px] mx-auto bg-carbon border border-ash rounded-xl p-8 md:p-10 shadow-2xl text-center">
-              <div className="w-20 h-20 mx-auto bg-teal/10 rounded-full flex items-center justify-center mb-6 border-2 border-teal/30">
-                <i className="lucide-shield-check text-3xl text-teal"></i>
-              </div>
-              <h2 className="text-2xl md:text-3xl font-mono font-bold text-pure leading-tight mb-3">Secure Access</h2>
-              <p className="font-sans text-sm text-cloud mb-8">SEISMICRISK TREMOR is GAM Assurance&#39;s seismic exposure command center. Access is strictly reserved for authorized personnel.</p>
-              <a href="index.html" className="block w-full bg-gradient-to-r from-teal to-blue-600 hover:from-teal/90 hover:to-blue-700 text-pure font-sans font-semibold rounded-xl py-3 mb-5 text-center transition-all duration-300 shadow-lg">Access Platform</a>
-              <div className="pt-5 border-t border-ash">
-                <p className="font-sans text-xs text-fog">Login issues? Contact IT Department:<br/><a href="mailto:support.it@gam-assurance.dz" className="text-teal hover:underline mt-1 inline-block">support.it@gam-assurance.dz</a></p>
-              </div>
-            </div>
-          </section>
-
-          {/* SECTION 8 - FOOTER */}
-          <footer className="bg-slate border-t border-ash py-10 px-6 md:px-12">
-            <div className="max-w-[1200px] mx-auto grid grid-cols-1 md:grid-cols-3 gap-10 mb-8 pb-8 border-b border-ash/50">
-              <div><div className="flex items-center gap-2 mb-4"><i className="lucide-zap text-teal text-xl"></i><span className="font-mono text-lg font-bold text-pure">SEISMICRISK</span><span className="text-xs text-fog">| TREMOR</span></div><p className="font-sans text-sm text-fog mb-4">Major Risks Management Department<br/>Seismic Intelligence System.</p><div className="flex items-center gap-2 px-3 py-1.5 bg-graphite border border-ash rounded-lg w-fit"><i className="lucide-radio-tower text-teal text-xs"></i><span className="font-sans text-[10px] text-cloud font-semibold uppercase">CRAAG Connected</span></div></div>
-              <div><h4 className="font-mono text-sm font-bold text-pure mb-4 uppercase">Internal Links</h4><ul className="space-y-2 font-sans text-sm text-fog"><li><a href="index.html" className="hover:text-teal">Dashboard Home</a></li><li><a href="map.html" className="hover:text-teal">Risk Map</a></li><li><a href="portfolio.html" className="hover:text-teal">Portfolio</a></li><li><a href="pml.html" className="hover:text-teal">PML Simulator</a></li><li><a href="opportunities.html" className="hover:text-teal">Opportunities</a></li><li><a href="report.html" className="hover:text-teal">Monthly Report</a></li><li><a href="acaps.html" className="hover:text-teal">ACAPS Report</a></li></ul></div>
-              <div><h4 className="font-mono text-sm font-bold text-pure mb-4 uppercase">Compliance</h4><ul className="space-y-2 font-sans text-sm text-fog"><li><a href="#" className="hover:text-pure">RPA 99 Standards</a></li><li><a href="#" className="hover:text-pure">ACAPS Regulations</a></li><li><a href="#" className="hover:text-pure">IS Security Policy</a></li><li><a href="#" className="hover:text-pure">Data Confidentiality</a></li></ul></div>
-            </div>
-            <div className="max-w-[1200px] mx-auto flex flex-col md:flex-row justify-between items-center gap-3">
-              <p className="font-sans text-[11px] text-fog">© 2026 GAM Assurance — SEISMICRISK TREMOR. Platform exclusively developed for internal use.</p>
-              <p className="font-sans text-[11px] text-fog flex items-center gap-2"><i className="lucide-map-pin text-teal text-xs"></i> Algiers, Algeria 🇩🇿</p>
-            </div>
-          </footer>
-
-          <style>{`
-            @keyframes ping { 75%, 100% { transform: scale(2); opacity: 0; } }
-            .animate-ping { animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite; }
-            .noise-bg { background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E"); opacity: 0.03; pointer-events: none; }
-            .map-rotate { animation: slowRotate 120s linear infinite; }
-            @keyframes slowRotate { 0% { transform: rotate(0deg) scale(1.1); } 50% { transform: rotate(2deg) scale(1.15); } 100% { transform: rotate(0deg) scale(1.1); } }
-          `}</style>
-        </div>
-      );
-    };
-
-    class ErrorBoundary extends React.Component {
-      constructor(props) {
-        super(props);
-        this.state = { hasError: false, error: null };
-      }
-      static getDerivedStateFromError(error) { return { hasError: true, error }; }
-      componentDidCatch(error, errorInfo) { console.error('Error:', error, errorInfo.componentStack); }
-      render() {
-        if (this.state.hasError) {
-          return (
-            <div className="min-h-screen flex items-center justify-center bg-slate text-pure">
-              <div className="text-center p-8 max-w-md bg-carbon border border-ash rounded-xl">
-                <h1 className="text-2xl font-mono text-red mb-4">Error</h1>
-                <p className="text-fog mb-4">{this.state.error?.message || "Unexpected error."}</p>
-                <button onClick={() => window.location.reload()} className="btn-primary">Reload Page</button>
-              </div>
-            </div>
-          );
-        }
-        return this.props.children;
-      }
-    }
-
-    function LandingApp() {
-      return React.createElement(Landing, null);
-    }
-
-    document.addEventListener('DOMContentLoaded', function() {
-      const rootElement = document.getElementById('root');
-      if (rootElement) {
-        const root = ReactDOM.createRoot(rootElement);
-        root.render(React.createElement(ErrorBoundary, null, React.createElement(LandingApp)));
-      }
+    // ========== BUILD FEATURE GRID ==========
+    const grid = document.getElementById('featureGrid');
+    FEATURES.forEach((f, i) => {
+        const div = document.createElement('div');
+        div.className = 'feature-item';
+        div.innerHTML = `<span class="feature-num">${String(i + 1).padStart(2, '0')}</span><span class="feature-name">${f}</span><svg class="feature-check" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>`;
+        grid.appendChild(div);
     });
+
+
+(function() {
+        const companyInput = document.getElementById('companyName');
+        const emailInput = document.getElementById('employeeEmail');
+        const codeInput = document.getElementById('accessCode');
+        const errorDiv = document.getElementById('errorMessage');
+        const btn = document.getElementById('accessBtn');
+
+        function validateAndRedirect(e) {
+            if (e) e.preventDefault();
+
+            const company = companyInput.value.trim();
+            const email = emailInput.value.trim();
+            const code = codeInput.value.trim();
+
+            // Reset error
+            errorDiv.classList.remove('show');
+            errorDiv.textContent = '';
+
+            // Validation
+            if (!company || !email || !code) {
+                errorDiv.textContent = '✖ Please fill in all fields to access the platform.';
+                errorDiv.classList.add('show');
+                return;
+            }
+
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                errorDiv.textContent = '✖ Please enter a valid email address.';
+                errorDiv.classList.add('show');
+                return;
+            }
+
+            if (code.length < 4) {
+                errorDiv.textContent = '✖ Invalid access code. Please contact IT support.';
+                errorDiv.classList.add('show');
+                return;
+            }
+
+            // Stockage session
+            sessionStorage.setItem('tremor_company', company);
+            sessionStorage.setItem('tremor_user', email);
+            sessionStorage.setItem('tremor_authenticated', 'true');
+
+            // Redirection
+            window.location.href = 'index.html';
+        }
+
+        // Écouteurs d'événements
+        btn.addEventListener('click', validateAndRedirect);
+
+        // Soumission avec Entrée
+        const form = document.getElementById('accessForm');
+        form.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                validateAndRedirect();
+            }
+        });
+    })();
+    </<script>
 </script>
 
 </body>
