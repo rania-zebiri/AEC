@@ -1,4 +1,4 @@
-// components/RiskMap.js
+// components/RiskMap.js - Version avec redirection vers pml.html
 const { useState, useEffect, useRef } = React;
 
 // Données des wilayas
@@ -44,13 +44,28 @@ const RiskMap = () => {
   const [showHotspots, setShowHotspots] = useState(false);
   const [colorBy, setColorBy] = useState("zone");
   const [selectedJumpWilaya, setSelectedJumpWilaya] = useState("");
-  const [pmlResult, setPmlResult] = useState(null);
 
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
   const contractsMarkersRef = useRef([]);
   const hotspotsMarkersRef = useRef([]);
+
+  // Fonction Run PML - Redirige vers pml.html
+  const handleRunPML = (wilaya) => {
+    const params = new URLSearchParams({
+      wilaya: wilaya.name,
+      zone: RISK_ZONES[wilaya.risk].label,
+      population: wilaya.population,
+      contracts: wilaya.contracts,
+      insuredCapital: wilaya.insuredCapital,
+      retentionUsed: wilaya.retentionUsed,
+      risk: wilaya.risk,
+      lat: wilaya.lat,
+      lng: wilaya.lng
+    });
+    window.location.href = `pml.html?${params.toString()}`;
+  };
 
   // Initialisation de la carte
   useEffect(() => {
@@ -211,18 +226,6 @@ const RiskMap = () => {
     }
   }, [selectedJumpWilaya]);
 
-  // Fonction Run PML
-  const handleRunPML = (wilaya) => {
-    const pmlEstimate = wilaya.insuredCapital * (wilaya.retentionUsed / 100) * (wilaya.risk / 4);
-    const result = {
-      pml: pmlEstimate,
-      pmlPercentage: (pmlEstimate / wilaya.insuredCapital) * 100,
-      recommendation: wilaya.retentionUsed > 80 ? "⚠️ Over-concentration alert active" : "✅ Within acceptable limits"
-    };
-    setPmlResult(result);
-    setTimeout(() => setPmlResult(null), 5000);
-  };
-
   return (
     <div className="relative w-full" style={{ minHeight: "calc(100vh - 64px)" }}>
 
@@ -331,7 +334,7 @@ const RiskMap = () => {
           </div>
         </div>
 
-        {/* Alerte */}
+        {/* Alerte - 3 wilayas exceed retention */}
         <div className="absolute bottom-4 right-4" style={{ pointerEvents: "auto" }}>
           <div className="bg-red/20 backdrop-blur-sm border border-red/30 rounded-lg p-3">
             <div className="flex items-center gap-2">
@@ -339,7 +342,15 @@ const RiskMap = () => {
               <span className="text-sm text-cloud">3 wilayas exceed retention</span>
             </div>
             <div className="flex gap-2 mt-2">
-              <button onClick={() => { const highRisk = WILAYAS.filter(w => w.risk >= 3); if (highRisk.length) setSelectedWilaya(highRisk[0]); }} className="text-teal text-xs hover:underline">Run PML</button>
+              <button
+                onClick={() => {
+                  const highRisk = WILAYAS.filter(w => w.risk >= 3);
+                  if (highRisk.length) handleRunPML(highRisk[0]);
+                }}
+                className="text-teal text-xs hover:underline"
+              >
+                Run PML
+              </button>
               <button className="text-fog text-xs hover:underline">☆ Watch</button>
             </div>
           </div>
@@ -355,31 +366,13 @@ const RiskMap = () => {
           </div>
         )}
 
-        {/* Message PML résultat */}
-        {pmlResult && (
-          <div className="absolute top-20 right-4" style={{ pointerEvents: "auto" }}>
-            <div className="bg-carbon rounded-lg shadow-card border border-teal p-3 animate-slide-in">
-              <div className="flex items-center gap-2 mb-2">
-                <i className="lucide-chart-line text-teal text-sm"></i>
-                <span className="text-sm font-mono text-pure">PML Estimate</span>
-              </div>
-              <div className="text-xs text-cloud">{(pmlResult.pml / 1000000).toFixed(0)} M DZD</div>
-              <div className="text-xs text-fog">{pmlResult.pmlPercentage.toFixed(1)}% of capital</div>
-              <div className="text-xs text-teal mt-1">{pmlResult.recommendation}</div>
-            </div>
-          </div>
-        )}
-
       </div>
 
-      {/* ============================================ */}
-      {/* MODAL WILAYA - STYLE COMME DANS L'IMAGE */}
-      {/* ============================================ */}
+      {/* MODAL WILAYA */}
       {selectedWilaya && (
         <div className="fixed inset-0 bg-overlay flex items-center justify-center z-20" style={{ pointerEvents: "auto" }} onClick={() => setSelectedWilaya(null)}>
           <div className="bg-carbon rounded-lg shadow-modal w-[420px] border border-ash" onClick={(e) => e.stopPropagation()}>
 
-            {/* En-tête avec nom et zone */}
             <div className="px-5 pt-5 pb-3 border-b border-ash">
               <div className="flex justify-between items-start">
                 <div>
@@ -394,7 +387,6 @@ const RiskMap = () => {
               </div>
             </div>
 
-            {/* Corps - EXPOSURE OVERVIEW */}
             <div className="p-5">
               <h3 className="font-mono text-sm font-semibold text-pure mb-3">EXPOSURE OVERVIEW</h3>
 
@@ -437,7 +429,7 @@ const RiskMap = () => {
                 View All Contracts
               </button>
 
-              {/* Boutons Run PML et Watch */}
+              {/* Boutons Run PML et Watch - AVEC REDIRECTION */}
               <div className="flex gap-3 mt-4">
                 <button
                   onClick={() => handleRunPML(selectedWilaya)}
@@ -467,13 +459,6 @@ const RiskMap = () => {
         }
         .pulse-marker {
           animation: pulse 1.5s ease-in-out infinite;
-        }
-        @keyframes slideIn {
-          from { opacity: 0; transform: translateX(20px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-        .animate-slide-in {
-          animation: slideIn 0.3s ease-out;
         }
       `}</style>
     </div>
