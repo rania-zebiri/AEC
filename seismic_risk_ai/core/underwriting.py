@@ -1,6 +1,6 @@
 # seismic_risk_ai/core/underwriting.py
 
-from core.rpa_zones import get_zone_by_location
+from seismic_risk_ai.core.rpa_zones import get_zone_by_location
 
 def decide_underwriting(contract, portfolio=None, ai_score=None):
     """
