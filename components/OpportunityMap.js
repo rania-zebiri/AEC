@@ -240,9 +240,7 @@ const OpportunityMap = () => {
           </div>
 
           <div className="p-4 border-t border-ash">
-            <button className="w-full bg-emerald-600 hover:bg-emerald-500 text-pure font-sans font-semibold rounded-[6px] h-[36px] transition-colors text-sm">
-              View Full Opportunity Report
-            </button>
+
           </div>
         </div>
 

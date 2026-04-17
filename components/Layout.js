@@ -15,7 +15,7 @@ const navItems = [
 
 const Sidebar = ({ currentPath }) => {
     const [isCollapsed, setIsCollapsed] = React.useState(false);
-    
+
     // Check path to highlight active nav
     const activeId = navItems.find(item => currentPath.includes(item.path))?.id || 'dashboard';
 
@@ -28,7 +28,7 @@ const Sidebar = ({ currentPath }) => {
                     <div className="icon-menu text-xl"></div>
                 </button>
             </div>
-            
+
             {/* Nav Links */}
             <div className="flex-1 overflow-y-auto py-4 scrollbar-hide">
                 <ul className="space-y-1 px-2">
@@ -36,8 +36,7 @@ const Sidebar = ({ currentPath }) => {
                         const isActive = item.id === activeId;
                         return (
                             <li key={item.id}>
-                                <a href={item.path} className={`flex items-center h-[40px] px-3 rounded-[6px] transition-colors group ${isActive ? 'bg-graphite text-teal' : 'text-fog hover:bg-graphite hover:text-pure'}`}>
-                                    <div className={`icon-${item.icon} text-lg ${isActive ? 'text-teal' : 'text-fog group-hover:text-pure'}`}></div>
+                                <a href={item.path} target="_self" onClick={(e) => { e.preventDefault(); window.location.href = item.path; }} className={`flex items-center h-[40px] px-3 rounded-[6px] transition-colors group ${isActive ? 'bg-graphite text-teal' : 'text-fog hover:bg-graphite hover:text-pure'}`}>                                    <div className={`icon-${item.icon} text-lg ${isActive ? 'text-teal' : 'text-fog group-hover:text-pure'}`}></div>
                                     {!isCollapsed && <span className="ml-3 font-sans text-[14px] font-medium whitespace-nowrap">{item.label}</span>}
                                 </a>
                             </li>
@@ -45,7 +44,7 @@ const Sidebar = ({ currentPath }) => {
                     })}
                 </ul>
             </div>
-            
+
             {/* Footer / Live Feed */}
             <div className="p-4 border-t border-ash">
                 <div className="flex items-center">
@@ -64,7 +63,7 @@ const Sidebar = ({ currentPath }) => {
 
 const Layout = ({ children }) => {
     const currentPath = window.location.pathname;
-    
+
     return (
         <div className="flex min-h-screen bg-slate">
             <Sidebar currentPath={currentPath} />

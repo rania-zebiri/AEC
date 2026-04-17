@@ -402,7 +402,6 @@ const RiskMap = () => {
                 <span className="text-amber font-mono">62%</span>
               </div>
             </div>
-            <button className="w-full mt-3 bg-gradient-to-r from-teal to-blue-600 hover:from-teal/90 hover:to-blue-700 text-pure font-sans font-semibold rounded-lg py-2 text-sm transition-all">View All Contracts</button>
           </div>
         </div>
 

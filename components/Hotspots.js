@@ -319,7 +319,6 @@ const Hotspots = () => {
 
                     <div className="flex justify-between items-center mt-4 pt-3 border-t border-ash/50">
                       <div className="font-sans text-[11px] text-fog">Risk Score: <span className="font-mono text-pure">{w.score}</span></div>
-                      <button className="text-[11px] font-sans font-medium text-amber hover:text-amber/80 transition-colors">View Details →</button>
                     </div>
                   </div>
                 );

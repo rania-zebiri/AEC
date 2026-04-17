@@ -31,35 +31,35 @@ const Underwriting = () => {
     // Derived State
     const wilayaData = React.useMemo(() => MOCK_WILAYAS.find(w => w.id === Number(wilayaId)), [wilayaId]);
     const numCapital = Number(capital) || 0;
-    
+
     // Auto-calculations
     const calcMetrics = React.useMemo(() => {
         let vuln = 0.5; // Base
-        
+
         // Building type mod
         if (buildingType === 'Old RC') vuln += 0.2;
         if (buildingType === 'Traditional Stone') vuln += 0.4;
         if (buildingType === 'Steel') vuln -= 0.1;
         if (buildingType === 'Other') vuln += 0.1;
-        
+
         // Nature mod
         if (nature === 'Residential') vuln -= 0.1;
         if (nature === 'Industrial') vuln += 0.2;
-        
+
         // Year mod
         if (Number(year) < 2003) vuln += 0.2;
-        
+
         vuln = Math.max(0.1, Math.min(vuln, 1.0));
-        
+
         // Zone base score
         const zoneScores = { 'III': 40, 'IIb': 30, 'IIa': 20, 'I': 10, '0': 0 };
         let zScore = wilayaData ? (zoneScores[wilayaData.zone] || 0) : 0;
-        
+
         let riskScore = zScore + (vuln * 50);
         if (inspection) riskScore -= 10;
-        
+
         riskScore = Math.round(Math.max(0, Math.min(riskScore, 100)));
-        
+
         return { vuln: vuln.toFixed(2), riskScore };
     }, [wilayaData, buildingType, nature, year, inspection]);
 
@@ -68,9 +68,9 @@ const Underwriting = () => {
         if (!clientName || !wilayaData || numCapital === 0) {
             return { state: 'incomplete' };
         }
-        
+
         const available = wilayaData.cap - wilayaData.used;
-        
+
         if (numCapital > available) {
             return {
                 state: 'rejected',
@@ -78,20 +78,20 @@ const Underwriting = () => {
                 details: { requested: numCapital, available, deficit: numCapital - available }
             };
         }
-        
+
         if (calcMetrics.riskScore > 75 || (!inspection && numCapital > 200000000) || wilayaData.zone === 'III') {
             const conditions = [];
             if (calcMetrics.riskScore > 75) conditions.push("High risk score requires senior management sign-off.");
             if (!inspection && numCapital > 200000000) conditions.push("Mandatory preventive inspection report within 30 days.");
             if (wilayaData.zone === 'III') conditions.push("Zone III earthquake premium surcharge applied (+15%).");
-            
+
             return {
                 state: 'conditional',
                 conditions,
                 premium: Math.round(numCapital * 0.0025 * 1.15)
             };
         }
-        
+
         return {
             state: 'acceptable',
             premium: Math.round(numCapital * 0.0025)
@@ -106,17 +106,17 @@ const Underwriting = () => {
 
     return (
         <div className="relative h-[calc(100vh-56px)] -mx-8 -my-8 flex flex-col bg-slate" data-name="underwriting-page" data-file="components/Underwriting.js">
-            
+
             {/* Top Tabs Header */}
             <div className="h-[64px] bg-carbon border-b border-ash px-8 flex items-center gap-8 shrink-0">
-                <button 
+                <button
                     className={`h-full flex items-center font-mono text-[14px] font-semibold border-b-[2px] transition-colors ${activeTab === 'new' ? 'border-teal text-pure' : 'border-transparent text-fog hover:text-cloud'}`}
                     onClick={() => setActiveTab('new')}
                 >
                     <div className="icon-file-plus mr-2 text-lg"></div>
                     New Contract Request
                 </button>
-                <button 
+                <button
                     className={`h-full flex items-center font-mono text-[14px] font-semibold border-b-[2px] transition-colors ${activeTab === 'queue' ? 'border-teal text-pure' : 'border-transparent text-fog hover:text-cloud'}`}
                     onClick={() => setActiveTab('queue')}
                 >
@@ -128,11 +128,11 @@ const Underwriting = () => {
             {/* Tab Content: New Request */}
             {activeTab === 'new' && (
                 <div className="flex-1 flex overflow-hidden">
-                    
+
                     {/* Left Panel: Form */}
                     <div className="w-full lg:w-[60%] flex flex-col overflow-y-auto border-r border-ash">
                         <div className="p-8 max-w-[800px] w-full mx-auto space-y-8">
-                            
+
                             <div>
                                 <h1 className="text-[24px] font-mono font-medium text-pure mb-2">Contract Data Entry</h1>
                                 <p className="font-sans text-sm text-fog">Fill in the primary exposure metrics. The decision engine will calculate risk automatically.</p>
@@ -168,7 +168,7 @@ const Underwriting = () => {
                                     <label className="label-text mb-3">Risk Nature</label>
                                     <div className="flex bg-graphite rounded-[6px] p-1 border border-ash w-full max-w-[400px]">
                                         {['Residential', 'Commercial', 'Industrial'].map(type => (
-                                            <button 
+                                            <button
                                                 key={type}
                                                 className={`flex-1 py-1.5 flex items-center justify-center gap-2 text-sm font-sans font-semibold rounded-[4px] transition-colors ${nature === type ? 'bg-ash text-pure shadow-sm' : 'text-fog hover:text-cloud'}`}
                                                 onClick={() => setNature(type)}
@@ -216,7 +216,7 @@ const Underwriting = () => {
                                         <div className="font-sans font-semibold text-pure text-sm">Preventive Inspection Completed?</div>
                                         <div className="font-sans text-xs text-fog mt-0.5">Valid engineering report provided by client</div>
                                     </div>
-                                    <button 
+                                    <button
                                         className={`relative w-12 h-6 rounded-full transition-colors ${inspection ? 'bg-blue' : 'bg-ash'}`}
                                         onClick={() => setInspection(!inspection)}
                                     >
@@ -259,7 +259,7 @@ const Underwriting = () => {
                                 <button className="btn-primary flex-1 shadow-md">Submit for Review</button>
                                 <button className="btn-outline px-6" onClick={handleClear}>Clear Form</button>
                             </div>
-                            
+
                             {/* Spacer */}
                             <div className="h-12"></div>
 
@@ -356,7 +356,7 @@ const Underwriting = () => {
                                                 <div className="font-mono text-[14px] text-red font-bold"><DZDArmount value={decision.details.deficit} /></div>
                                             </div>
                                         </div>
-                                        
+
                                         <div className="pt-4 border-t border-ash/50">
                                             <div className="font-sans text-[12px] font-semibold uppercase text-fog mb-3 tracking-wider">Alternative Actions</div>
                                             <div className="flex flex-col gap-2">
