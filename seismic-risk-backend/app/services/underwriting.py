@@ -1,7 +1,9 @@
+"""
+Underwriting Rules Engine
+"""
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from typing import Dict, Any, Optional, Tuple
-import json
+from typing import Dict, Any, Optional, Tuple, List
 from datetime import date
 from app.models.wilaya import Wilaya
 from app.models.building_type import BuildingType
@@ -11,6 +13,7 @@ from app.models.retention_config import RetentionConfig
 from app.services.risk_scorer import RiskScorer
 from app.core.logging import logger
 
+
 class UnderwritingEngine:
     """Underwriting decision engine with rule-based logic"""
     
@@ -18,8 +21,7 @@ class UnderwritingEngine:
     def get_retention_capacity(cls, db: Session) -> float:
         """Get current global retention capacity per wilaya"""
         config = db.query(RetentionConfig).filter(
-            RetentionConfig.config_key == "GLOBAL_RETENTION_CAPACITY",
-            RetentionConfig.effective_from <= date.today()
+            RetentionConfig.config_key == "GLOBAL_RETENTION_CAPACITY"
         ).order_by(RetentionConfig.effective_from.desc()).first()
         
         if config:
@@ -30,13 +32,28 @@ class UnderwritingEngine:
     def get_reinsurance_ratio(cls, db: Session) -> float:
         """Get current reinsurance coverage ratio"""
         config = db.query(RetentionConfig).filter(
-            RetentionConfig.config_key == "REINSURANCE_COVERAGE_RATIO",
-            RetentionConfig.effective_from <= date.today()
+            RetentionConfig.config_key == "REINSURANCE_COVERAGE_RATIO"
         ).order_by(RetentionConfig.effective_from.desc()).first()
         
         if config:
             return float(config.config_value)
         return 0.40  # Default 40%
+    
+    @classmethod
+    def get_risk_thresholds(cls, db: Session) -> Dict[str, float]:
+        """Get risk score thresholds"""
+        thresholds = {}
+        for level in ["CRITICAL", "HIGH", "MEDIUM"]:
+            config = db.query(RetentionConfig).filter(
+                RetentionConfig.config_key == f"SCORE_{level}_THRESHOLD"
+            ).order_by(RetentionConfig.effective_from.desc()).first()
+            if config:
+                thresholds[level] = float(config.config_value)
+            else:
+                # Default thresholds
+                default_thresholds = {"CRITICAL": 75, "HIGH": 50, "MEDIUM": 25}
+                thresholds[level] = default_thresholds.get(level, 50)
+        return thresholds
     
     @classmethod
     def get_current_wilaya_exposure(cls, db: Session, wilaya_id: int) -> float:
@@ -71,6 +88,7 @@ class UnderwritingEngine:
                 "decision": "REJECT",
                 "reason_fr": "Wilaya non reconnue dans le système",
                 "risk_score": None,
+                "risk_level": None,
                 "remaining_capacity": None,
                 "conditions": None,
                 "ai_narrative": None
@@ -86,6 +104,7 @@ class UnderwritingEngine:
                 "decision": "REJECT",
                 "reason_fr": f"Numéro de police {numero_police} existe déjà dans le système",
                 "risk_score": None,
+                "risk_level": None,
                 "remaining_capacity": None,
                 "conditions": None,
                 "ai_narrative": None
@@ -105,6 +124,9 @@ class UnderwritingEngine:
         })()
         score_data = RiskScorer.compute_score(db, temp_contract)
         
+        # Get risk thresholds
+        thresholds = cls.get_risk_thresholds(db)
+        
         # Decision logic
         decision = "ACCEPT"
         reason = ""
@@ -116,6 +138,7 @@ class UnderwritingEngine:
             reason = f"Capacité restante insuffisante dans la wilaya {wilaya.name_fr}. "
             reason += f"Capital proposé: {capital_proposed:,.0f} DZD, "
             reason += f"Capacité restante: {max(0, remaining_capacity):,.0f} DZD"
+        
         elif capital_proposed > remaining_capacity * 0.8:
             decision = "ACCEPT_WITH_CONDITIONS"
             reason = f"Capital proposé proche de la capacité maximale de la wilaya "
@@ -125,23 +148,26 @@ class UnderwritingEngine:
                 "Inspection technique obligatoire",
                 "Révision annuelle du contrat"
             ]
+        
         # Rule 2: Risk score check
-        elif score_data["risk_score"] >= 75:
+        elif score_data["risk_score"] >= thresholds.get("CRITICAL", 75):
             decision = "ACCEPT_WITH_CONDITIONS"
-            reason = f"Score de risque élevé ({score_data['risk_score']:.1f}/100). "
+            reason = f"Score de risque critique ({score_data['risk_score']:.1f}/100). "
             reason += f"Niveau {score_data['risk_level']}."
             conditions = [
                 "Prime majorée de 25%",
                 "Rapport d'inspection parasismique requis",
                 "Déductible majoré"
             ]
-        elif score_data["risk_score"] >= 50:
+        
+        elif score_data["risk_score"] >= thresholds.get("HIGH", 50):
             decision = "ACCEPT_WITH_CONDITIONS"
-            reason = f"Score de risque moyen-élevé ({score_data['risk_score']:.1f}/100)."
+            reason = f"Score de risque élevé ({score_data['risk_score']:.1f}/100)."
             conditions = [
                 "Prime majorée de 10%",
                 "Inspection facultative recommandée"
             ]
+        
         # Rule 3: Zone check
         elif wilaya.zone_score >= 2.5:  # Zone III
             decision = "ACCEPT_WITH_CONDITIONS"
@@ -150,6 +176,7 @@ class UnderwritingEngine:
                 "Clause spécifique zone sismique",
                 "Renforcement parasismique recommandé"
             ]
+        
         else:
             reason = f"Contrat acceptable selon les critères standards. "
             reason += f"Score de risque: {score_data['risk_score']:.1f}/100"
@@ -172,6 +199,7 @@ class UnderwritingEngine:
         db.commit()
         db.refresh(decision_record)
         
+        # Log audit
         from app.core.logging import log_audit
         log_audit(
             db=db,
@@ -190,11 +218,12 @@ class UnderwritingEngine:
         )
         
         return {
+            "decision_id": decision_record.id,
             "decision": decision,
             "reason_fr": reason,
             "risk_score": score_data["risk_score"],
             "risk_level": score_data["risk_level"],
             "remaining_capacity": max(0, remaining_capacity),
             "conditions": conditions,
-            "decision_id": decision_record.id
+            "ai_narrative": None
         }

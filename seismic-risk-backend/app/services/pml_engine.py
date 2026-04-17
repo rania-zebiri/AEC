@@ -1,3 +1,6 @@
+"""
+Probable Maximum Loss (PML) Calculation Engine
+"""
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import Dict, Any, Optional
@@ -9,11 +12,11 @@ from app.models.building_type import BuildingType
 from app.models.pml_simulation import PMLSimulation
 from app.core.logging import logger
 
+
 class PMLEngine:
     """Probable Maximum Loss calculation engine"""
     
     # Intensity factor matrix based on RPA zone and magnitude
-    # Format: (magnitude, zone) -> intensity_factor
     INTENSITY_MATRIX = {
         # Magnitude 5.0
         (5.0, "0"): 0.01, (5.0, "I"): 0.02, (5.0, "IIa"): 0.03,
@@ -49,6 +52,30 @@ class PMLEngine:
         # Default fallback
         zone_defaults = {"0": 0.05, "I": 0.10, "IIa": 0.15, "IIb": 0.20, "III": 0.30}
         return zone_defaults.get(rpa_zone, 0.15) * (magnitude / 6.0)
+    
+    @classmethod
+    def get_retention_capacity(cls, db: Session) -> float:
+        """Get current retention capacity"""
+        from app.models.retention_config import RetentionConfig
+        config = db.query(RetentionConfig).filter(
+            RetentionConfig.config_key == "GLOBAL_RETENTION_CAPACITY"
+        ).order_by(RetentionConfig.effective_from.desc()).first()
+        
+        if config:
+            return float(config.config_value)
+        return 1_000_000_000
+    
+    @classmethod
+    def get_reinsurance_ratio(cls, db: Session) -> float:
+        """Get current reinsurance coverage ratio"""
+        from app.models.retention_config import RetentionConfig
+        config = db.query(RetentionConfig).filter(
+            RetentionConfig.config_key == "REINSURANCE_COVERAGE_RATIO"
+        ).order_by(RetentionConfig.effective_from.desc()).first()
+        
+        if config:
+            return float(config.config_value)
+        return 0.40
     
     @classmethod
     def calculate_pml(
@@ -112,9 +139,8 @@ class PMLEngine:
             expected_loss += contract_loss
         
         # Get reinsurance configuration
-        from app.services.underwriting import UnderwritingEngine
-        retention_capacity = UnderwritingEngine.get_retention_capacity(db)
-        reinsurance_ratio = UnderwritingEngine.get_reinsurance_ratio(db)
+        retention_capacity = cls.get_retention_capacity(db)
+        reinsurance_ratio = cls.get_reinsurance_ratio(db)
         
         # Calculate net loss
         reinsurance_cover = expected_loss * reinsurance_ratio
@@ -154,3 +180,32 @@ class PMLEngine:
         
         result["simulation_id"] = simulation.id
         return result
+    
+    @classmethod
+    def calculate_portfolio_pml(
+        cls,
+        db: Session,
+        magnitude: float,
+        scenario_month: Optional[date] = None
+    ) -> Dict[str, Any]:
+        """Calculate PML for entire portfolio"""
+        
+        wilayas = db.query(Wilaya).all()
+        
+        total_loss = 0
+        total_capital = 0
+        results = []
+        
+        for wilaya in wilayas:
+            pml_result = cls.calculate_pml(db, wilaya.id, magnitude, scenario_month, None)
+            results.append(pml_result)
+            total_loss += pml_result["expected_loss_dzd"]
+            total_capital += pml_result["total_capital_dzd"]
+        
+        return {
+            "magnitude": magnitude,
+            "total_portfolio_loss_dzd": total_loss,
+            "total_portfolio_capital_dzd": total_capital,
+            "portfolio_loss_ratio_pct": (total_loss / total_capital * 100) if total_capital > 0 else 0,
+            "wilaya_results": results
+        }

@@ -1,12 +1,16 @@
+"""
+Risk Score Computation Engine
+"""
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import numpy as np
 from app.models.contract import Contract
 from app.models.wilaya import Wilaya
 from app.models.building_type import BuildingType
 from app.models.risk_score import RiskScore
 from app.core.logging import logger
+
 
 class RiskScorer:
     """Computes risk scores for contracts (0-100, higher = more dangerous)"""
@@ -19,8 +23,13 @@ class RiskScorer:
     # Capital normalization: max capital in portfolio
     MAX_CAPITAL_REFERENCE = 1_000_000_000  # 1B DZD
     
+    # Score thresholds
+    CRITICAL_THRESHOLD = 75
+    HIGH_THRESHOLD = 50
+    MEDIUM_THRESHOLD = 25
+    
     @classmethod
-    def compute_score(cls, db: Session, contract: Contract) -> Dict[str, Any]:
+    def compute_score(cls, db: Session, contract) -> Dict[str, Any]:
         """Compute risk score for a single contract"""
         
         # Get wilaya zone score
@@ -51,11 +60,11 @@ class RiskScorer:
         )
         
         # Determine risk level
-        if total_score >= 75:
+        if total_score >= cls.CRITICAL_THRESHOLD:
             risk_level = "CRITICAL"
-        elif total_score >= 50:
+        elif total_score >= cls.HIGH_THRESHOLD:
             risk_level = "HIGH"
-        elif total_score >= 25:
+        elif total_score >= cls.MEDIUM_THRESHOLD:
             risk_level = "MEDIUM"
         else:
             risk_level = "LOW"
@@ -82,7 +91,6 @@ class RiskScorer:
         if existing:
             for key, value in score_data.items():
                 setattr(existing, key, value)
-            existing.computed_at = func.now()
             result = existing
         else:
             result = RiskScore(contract_id=contract_id, **score_data)
@@ -103,3 +111,32 @@ class RiskScorer:
             count += 1
         logger.info(f"Recomputed risk scores for {count} active contracts")
         return count
+    
+    @classmethod
+    def get_portfolio_stats(cls, db: Session) -> Dict[str, Any]:
+        """Get risk score statistics for the portfolio"""
+        
+        stats = db.query(
+            func.avg(RiskScore.risk_score).label("avg"),
+            func.min(RiskScore.risk_score).label("min"),
+            func.max(RiskScore.risk_score).label("max"),
+            func.stddev(RiskScore.risk_score).label("stddev")
+        ).join(Contract, RiskScore.contract_id == Contract.id)\
+         .filter(Contract.is_active == True)\
+         .first()
+        
+        distribution = db.query(
+            RiskScore.risk_level,
+            func.count(RiskScore.id).label("count")
+        ).join(Contract, RiskScore.contract_id == Contract.id)\
+         .filter(Contract.is_active == True)\
+         .group_by(RiskScore.risk_level)\
+         .all()
+        
+        return {
+            "average": float(stats.avg) if stats.avg else 0,
+            "minimum": float(stats.min) if stats.min else 0,
+            "maximum": float(stats.max) if stats.max else 0,
+            "stddev": float(stats.stddev) if stats.stddev else 0,
+            "distribution": {d.risk_level: d.count for d in distribution}
+        }
