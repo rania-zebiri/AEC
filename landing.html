@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TREMOR - Seismic Risk Intelligence for Algeria</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700&display=swap" rel="stylesheet">
+
+    <script src="https://resource.trickle.so/vendor_lib/unpkg/react@18/umd/react.production.min.js"></script>
+    <script src="https://resource.trickle.so/vendor_lib/unpkg/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://resource.trickle.so/vendor_lib/unpkg/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://resource.trickle.so/vendor_lib/unpkg/lucide-static@0.516.0/font/lucide.css" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: '#0D1117',
+                        carbon: '#161B22',
+                        graphite: '#21262D',
+                        ash: '#30363D',
+                        fog: '#8B949E',
+                        cloud: '#C9D1D9',
+                        pure: '#F0F6FC',
+                        
+                        zone: {
+                            0: '#2EA043',
+                            1: '#A3A020',
+                            2: '#D29922',
+                            3: '#E3622A',
+                            4: '#DA3633'
+                        },
+                        
+                        teal: '#39D0D8',
+                        blue: '#1F6FEB',
+                        amber: '#D29922',
+                        red: '#DA3633',
+                        green: '#2EA043',
+                        
+                        overlay: 'rgba(13,17,23,0.85)',
+                        glass: 'rgba(33,38,45,0.8)',
+                    },
+                    fontFamily: {
+                        mono: ['"DM Mono"', 'monospace'],
+                        sans: ['"Instrument Sans"', 'sans-serif'],
+                    },
+                    boxShadow: {
+                        card: '0 1px 3px rgba(0,0,0,0.4), 0 0 0 1px rgba(48,54,61,0.8)',
+                        glow: '0 0 40px rgba(57,208,216,0.15)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+    @layer base {
+        body {
+            @apply bg-slate text-cloud font-sans antialiased overflow-x-hidden;
+        }
+        h1, h2, h3, h4, h5, h6 {
+            @apply font-mono text-pure;
+        }
+    }
+    
+    @layer components {
+        .btn-primary {
+            @apply bg-blue hover:bg-opacity-90 text-pure font-sans font-semibold rounded-[6px] px-6 h-[44px] flex items-center justify-center transition-colors;
+        }
+        .btn-outline {
+            @apply bg-transparent border border-teal text-teal hover:bg-teal/10 font-sans font-semibold rounded-[6px] px-6 h-[44px] flex items-center justify-center transition-colors;
+        }
+        .glass-panel {
+            @apply bg-glass backdrop-blur-md border border-ash rounded-[8px] shadow-card;
+        }
+        .input-field {
+            @apply bg-graphite border border-ash rounded-[6px] h-[48px] px-4 text-cloud focus:border-teal focus:outline-none focus:ring-1 focus:ring-teal font-sans w-full text-base transition-colors;
+        }
+    }
+
+    .noise-bg {
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        opacity: 0.03;
+        pointer-events: none;
+    }
+    
+    .map-rotate {
+        animation: slowRotate 120s linear infinite;
+    }
+    @keyframes slowRotate {
+        0% { transform: rotate(0deg) scale(1.1); }
+        50% { transform: rotate(2deg) scale(1.15); }
+        100% { transform: rotate(0deg) scale(1.1); }
+    }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel" src="components/Landing.js"></script>
+    <script type="text/babel" src="landing-app.js"></script>
+</body>
+</html>
