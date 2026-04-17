@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TREMOR - Seismic Risk Intelligence for Algeria</title>
-    
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700&display=swap" rel="stylesheet">
 
-    <script src="https://resource.trickle.so/vendor_lib/unpkg/react@18/umd/react.production.min.js"></script>
-    <script src="https://resource.trickle.so/vendor_lib/unpkg/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/react@18.2.0/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.development.js"></script>
     <script src="https://resource.trickle.so/vendor_lib/unpkg/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://resource.trickle.so/vendor_lib/unpkg/lucide-static@0.516.0/font/lucide.css" rel="stylesheet">
@@ -28,7 +28,7 @@
                         fog: '#8B949E',
                         cloud: '#C9D1D9',
                         pure: '#F0F6FC',
-                        
+
                         zone: {
                             0: '#2EA043',
                             1: '#A3A020',
@@ -36,13 +36,13 @@
                             3: '#E3622A',
                             4: '#DA3633'
                         },
-                        
+
                         teal: '#39D0D8',
                         blue: '#1F6FEB',
                         amber: '#D29922',
                         red: '#DA3633',
                         green: '#2EA043',
-                        
+
                         overlay: 'rgba(13,17,23,0.85)',
                         glass: 'rgba(33,38,45,0.8)',
                     },
@@ -67,7 +67,7 @@
             @apply font-mono text-pure;
         }
     }
-    
+
     @layer components {
         .btn-primary {
             @apply bg-blue hover:bg-opacity-90 text-pure font-sans font-semibold rounded-[6px] px-6 h-[44px] flex items-center justify-center transition-colors;
@@ -88,7 +88,7 @@
         opacity: 0.03;
         pointer-events: none;
     }
-    
+
     .map-rotate {
         animation: slowRotate 120s linear infinite;
     }
