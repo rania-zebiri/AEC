@@ -1,14 +1,15 @@
-#!/usr/bin/env python
-"""Seed static data for wilayas, building_types, retention_config, users"""
 from sqlalchemy.orm import Session
 from app.core.database import SessionLocal
 from app.models import Wilaya, BuildingType, RetentionConfig, User
-from passlib.context import CryptContext
+from datetime import date
+import hashlib
+import secrets
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-def get_password_hash(password):
-    return pwd_context.hash(password)
+def get_password_hash(password: str) -> str:
+    """Simple password hashing (for development only)"""
+    # This is a simple hash for development - use proper bcrypt in production
+    salt = secrets.token_hex(16)
+    return hashlib.pbkdf2_hmac('sha256', password.encode(), salt.encode(), 100000).hex() + ":" + salt
 
 # Complete 48 Wilayas Data
 WILAYAS_DATA = [
@@ -97,17 +98,6 @@ def seed_wilayas(db: Session):
         else:
             map_color = "green"
         
-        # Set coordinates (approximate centroids)
-        coords = {
-            "16": (36.7538, 3.0588),  # Alger
-            "31": (35.6969, -0.6331), # Oran
-            "23": (36.9000, 7.7500),  # Annaba
-            "13": (34.8828, -1.3167), # Tlemcen
-            # Add more coordinates as needed
-        }
-        
-        lat, lon = coords.get(code, (None, None))
-        
         wilaya = Wilaya(
             code=code,
             name_fr=name_fr,
@@ -115,8 +105,8 @@ def seed_wilayas(db: Session):
             rpa_zone=rpa_zone,
             zone_score=zone_score,
             map_color=map_color,
-            latitude=lat,
-            longitude=lon,
+            latitude=None,
+            longitude=None,
             region=region,
             population_growth_pct=pop_growth,
             competition_level=comp_level
@@ -141,7 +131,6 @@ def seed_building_types(db: Session):
 
 def seed_retention_config(db: Session):
     """Seed retention configuration"""
-    from datetime import date
     for key, value, desc, unit in RETENTION_CONFIG_DATA:
         config = RetentionConfig(
             config_key=key,
@@ -155,7 +144,8 @@ def seed_retention_config(db: Session):
     print(f"Seeded {len(RETENTION_CONFIG_DATA)} retention configs")
 
 def seed_users(db: Session):
-    """Seed initial users"""
+    """Seed initial users with simple password hashing"""
+    
     # Admin user (password: admin123)
     admin = User(
         username="admin",
@@ -194,6 +184,9 @@ def seed_users(db: Session):
     
     db.commit()
     print("Seeded 3 users (admin/manager/analyst)")
+    print("  - admin / admin123")
+    print("  - manager / manager123")
+    print("  - analyst / analyst123")
 
 def seed_all():
     """Seed all static data"""

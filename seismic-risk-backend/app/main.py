@@ -1,19 +1,18 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 from app.config import settings
 from app.api.v1.router import api_router
 from app.core.database import engine, Base
 from app.core.logging import logger
+import traceback
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
     logger.info("Starting Seismic Risk Portfolio API...")
-    # Create tables if not exist
     Base.metadata.create_all(bind=engine)
     yield
-    # Shutdown
     logger.info("Shutting down...")
 
 app = FastAPI(
@@ -23,7 +22,18 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS
+# ⚠️ DEBUG ONLY - remove before production
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": type(exc).__name__,
+            "detail": str(exc),
+            "traceback": traceback.format_exc()
+        }
+    )
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -32,7 +42,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
 app.include_router(api_router)
 
 @app.get("/health")

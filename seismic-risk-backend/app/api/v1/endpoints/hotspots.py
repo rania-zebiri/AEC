@@ -16,99 +16,48 @@ router = APIRouter(prefix="/hotspots", tags=["Hotspots"])
 def get_current_hotspots(db: Session = Depends(get_db)):
     """Returns current hotspots"""
     
-    today = date.today()
-    
-    hotspots = db.query(HotspotSnapshot).filter(
-        HotspotSnapshot.snapshot_date == today,
-        HotspotSnapshot.is_hotspot == True
-    ).all()
-    
-    # If no snapshot for today, calculate on the fly
-    if not hotspots:
-        from scripts.run_scheduler import SchedulerJobs
-        scheduler = SchedulerJobs(db)
-        scheduler.create_hotspot_snapshots()
-        hotspots = db.query(HotspotSnapshot).filter(
-            HotspotSnapshot.snapshot_date == today,
-            HotspotSnapshot.is_hotspot == True
-        ).all()
-    
-    result = []
-    for hotspot in hotspots:
-        wilaya = db.query(Wilaya).filter(Wilaya.id == hotspot.wilaya_id).first()
-        if wilaya:
-            result.append({
-                "wilaya_id": hotspot.wilaya_id,
-                "wilaya_name": wilaya.name_fr,
-                "wilaya_code": wilaya.code,
-                "rpa_zone": wilaya.rpa_zone,
-                "zone_score": float(wilaya.zone_score),
-                "total_capital_dzd": float(hotspot.total_capital_dzd),
-                "retention_capacity_dzd": float(hotspot.retention_capacity_dzd),
-                "excess_dzd": float(hotspot.excess_dzd),
-                "excess_pct": float(hotspot.excess_pct),
-                "contract_count": hotspot.contract_count,
-                "pml_mag65_dzd": float(hotspot.pml_mag65_dzd) if hotspot.pml_mag65_dzd else 0,
-                "risk_level": "CRITICAL" if hotspot.excess_pct > 200 else "HIGH" if hotspot.excess_pct > 100 else "MEDIUM"
+    try:
+        # Get retention capacity
+        config = db.query(RetentionConfig).filter(
+            RetentionConfig.config_key == "GLOBAL_RETENTION_CAPACITY"
+        ).order_by(RetentionConfig.effective_from.desc()).first()
+        retention_capacity = float(config.config_value) if config else 1_000_000_000
+        
+        # Get current exposure per wilaya
+        results = db.query(
+            Wilaya.id,
+            Wilaya.name_fr,
+            Wilaya.code,
+            Wilaya.rpa_zone,
+            Wilaya.zone_score,
+            func.coalesce(func.sum(Contract.capital_assure), 0).label("total_capital"),
+            func.count(Contract.id).label("contract_count")
+        ).outerjoin(Contract, (Contract.wilaya_id == Wilaya.id) & (Contract.is_active == True))\
+         .group_by(Wilaya.id)\
+         .having(func.coalesce(func.sum(Contract.capital_assure), 0) > retention_capacity)\
+         .order_by(func.coalesce(func.sum(Contract.capital_assure), 0).desc())\
+         .all()
+        
+        hotspots = []
+        for row in results:
+            excess_dzd = float(row.total_capital) - retention_capacity
+            excess_pct = (excess_dzd / retention_capacity * 100) if retention_capacity > 0 else 0
+            
+            hotspots.append({
+                "wilaya_id": row.id,
+                "wilaya_name": row.name_fr,
+                "wilaya_code": row.code,
+                "rpa_zone": row.rpa_zone,
+                "zone_score": float(row.zone_score),
+                "total_capital_dzd": float(row.total_capital),
+                "retention_capacity_dzd": retention_capacity,
+                "excess_dzd": excess_dzd,
+                "excess_pct": round(excess_pct, 2),
+                "contract_count": row.contract_count,
+                "risk_level": "CRITICAL" if excess_pct > 200 else "HIGH" if excess_pct > 100 else "MEDIUM"
             })
-    
-    return sorted(result, key=lambda x: x["excess_pct"], reverse=True)
-
-
-@router.get("/history")
-def get_hotspot_history(
-    wilaya_id: Optional[int] = None,
-    days: int = Query(30, ge=1, le=365),
-    db: Session = Depends(get_db)
-):
-    """Returns hotspot history"""
-    
-    start_date = date.today() - timedelta(days=days)
-    
-    query = db.query(HotspotSnapshot).filter(
-        HotspotSnapshot.snapshot_date >= start_date
-    )
-    
-    if wilaya_id:
-        query = query.filter(HotspotSnapshot.wilaya_id == wilaya_id)
-    
-    snapshots = query.order_by(HotspotSnapshot.snapshot_date).all()
-    
-    result = []
-    for snapshot in snapshots:
-        wilaya = db.query(Wilaya).filter(Wilaya.id == snapshot.wilaya_id).first()
-        result.append({
-            "date": snapshot.snapshot_date.isoformat(),
-            "wilaya_id": snapshot.wilaya_id,
-            "wilaya_name": wilaya.name_fr if wilaya else None,
-            "total_capital_dzd": float(snapshot.total_capital_dzd),
-            "is_hotspot": snapshot.is_hotspot,
-            "excess_dzd": float(snapshot.excess_dzd),
-            "excess_pct": float(snapshot.excess_pct)
-        })
-    
-    return result
-
-
-@router.get("/thresholds")
-def get_retention_thresholds(db: Session = Depends(get_db)):
-    """Returns retention capacity configuration"""
-    
-    configs = db.query(RetentionConfig).filter(
-        RetentionConfig.config_key.in_([
-            "GLOBAL_RETENTION_CAPACITY",
-            "REINSURANCE_COVERAGE_RATIO"
-        ]),
-        RetentionConfig.effective_from <= date.today()
-    ).order_by(RetentionConfig.effective_from.desc()).all()
-    
-    result = {}
-    for config in configs:
-        result[config.config_key] = {
-            "value": float(config.config_value),
-            "unit": config.unit,
-            "description": config.description,
-            "effective_from": config.effective_from.isoformat()
-        }
-    
-    return result
+        
+        return hotspots
+        
+    except Exception as e:
+        return {"error": str(e), "hotspots": []}

@@ -4,7 +4,6 @@ Probable Maximum Loss (PML) Calculation Engine
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import Dict, Any, Optional
-import math
 from datetime import date
 from app.models.contract import Contract
 from app.models.wilaya import Wilaya
@@ -16,42 +15,12 @@ from app.core.logging import logger
 class PMLEngine:
     """Probable Maximum Loss calculation engine"""
     
-    # Intensity factor matrix based on RPA zone and magnitude
-    INTENSITY_MATRIX = {
-        # Magnitude 5.0
-        (5.0, "0"): 0.01, (5.0, "I"): 0.02, (5.0, "IIa"): 0.03,
-        (5.0, "IIb"): 0.04, (5.0, "III"): 0.06,
-        # Magnitude 5.5
-        (5.5, "0"): 0.02, (5.5, "I"): 0.04, (5.5, "IIa"): 0.06,
-        (5.5, "IIb"): 0.08, (5.5, "III"): 0.12,
-        # Magnitude 6.0
-        (6.0, "0"): 0.05, (6.0, "I"): 0.08, (6.0, "IIa"): 0.12,
-        (6.0, "IIb"): 0.16, (6.0, "III"): 0.24,
-        # Magnitude 6.5
-        (6.5, "0"): 0.08, (6.5, "I"): 0.15, (6.5, "IIa"): 0.25,
-        (6.5, "IIb"): 0.35, (6.5, "III"): 0.50,
-        # Magnitude 7.0
-        (7.0, "0"): 0.15, (7.0, "I"): 0.25, (7.0, "IIa"): 0.40,
-        (7.0, "IIb"): 0.55, (7.0, "III"): 0.75,
-        # Magnitude 7.5
-        (7.5, "0"): 0.25, (7.5, "I"): 0.40, (7.5, "IIa"): 0.60,
-        (7.5, "IIb"): 0.75, (7.5, "III"): 0.90,
-    }
-    
     @classmethod
     def get_intensity_factor(cls, magnitude: float, rpa_zone: str) -> float:
-        """Get intensity factor from matrix, interpolating if needed"""
-        # Round magnitude to nearest 0.5
-        rounded_mag = round(magnitude * 2) / 2
-        rounded_mag = max(5.0, min(7.5, rounded_mag))
-        
-        key = (rounded_mag, rpa_zone)
-        if key in cls.INTENSITY_MATRIX:
-            return cls.INTENSITY_MATRIX[key]
-        
-        # Default fallback
+        """Get intensity factor based on magnitude and zone"""
         zone_defaults = {"0": 0.05, "I": 0.10, "IIa": 0.15, "IIb": 0.20, "III": 0.30}
-        return zone_defaults.get(rpa_zone, 0.15) * (magnitude / 6.0)
+        base_factor = zone_defaults.get(rpa_zone, 0.15)
+        return base_factor * (magnitude / 6.0)
     
     @classmethod
     def get_retention_capacity(cls, db: Session) -> float:
@@ -60,10 +29,7 @@ class PMLEngine:
         config = db.query(RetentionConfig).filter(
             RetentionConfig.config_key == "GLOBAL_RETENTION_CAPACITY"
         ).order_by(RetentionConfig.effective_from.desc()).first()
-        
-        if config:
-            return float(config.config_value)
-        return 1_000_000_000
+        return float(config.config_value) if config else 1_000_000_000
     
     @classmethod
     def get_reinsurance_ratio(cls, db: Session) -> float:
@@ -72,10 +38,7 @@ class PMLEngine:
         config = db.query(RetentionConfig).filter(
             RetentionConfig.config_key == "REINSURANCE_COVERAGE_RATIO"
         ).order_by(RetentionConfig.effective_from.desc()).first()
-        
-        if config:
-            return float(config.config_value)
-        return 0.40
+        return float(config.config_value) if config else 0.40
     
     @classmethod
     def calculate_pml(
@@ -86,32 +49,70 @@ class PMLEngine:
         scenario_month: Optional[date] = None,
         user_id: Optional[int] = None
     ) -> Dict[str, Any]:
-        """Calculate PML for a given wilaya and magnitude"""
         
-        # Get wilaya info
-        wilaya = db.query(Wilaya).filter(Wilaya.id == wilaya_id).first()
-        if not wilaya:
-            raise ValueError(f"Wilaya {wilaya_id} not found")
-        
-        # Get active contracts in this wilaya
-        contracts_query = db.query(Contract).filter(
-            Contract.wilaya_id == wilaya_id,
-            Contract.is_active == True
-        )
-        
-        # If scenario month provided, filter by contracts active at that time
-        if scenario_month:
-            contracts_query = contracts_query.filter(
-                Contract.date_effect <= scenario_month,
-                Contract.date_expiration >= scenario_month
-            )
-        
-        contracts = contracts_query.all()
-        
-        if not contracts:
-            return {
+        try:
+            wilaya = db.query(Wilaya).filter(Wilaya.id == wilaya_id).first()
+            if not wilaya:
+                raise ValueError(f"Wilaya {wilaya_id} not found")
+            
+            contracts = db.query(Contract).filter(
+                Contract.wilaya_id == wilaya_id,
+                Contract.is_active == True
+            ).all()
+            
+            if not contracts:
+                return {
+                    "wilaya_id": wilaya_id,
+                    "wilaya_name": wilaya.name_fr,
+                    "magnitude": magnitude,
+                    "total_capital_dzd": 0,
+                    "contract_count": 0,
+                    "expected_loss_dzd": 0,
+                    "reinsurance_cover_dzd": 0,
+                    "net_company_loss_dzd": 0,
+                    "loss_ratio_pct": 0,
+                    "intensity_factor_used": cls.get_intensity_factor(magnitude, wilaya.rpa_zone),
+                    "simulation_id": 0
+                }
+            
+            total_capital = sum(float(c.capital_assure) for c in contracts)
+            intensity_factor = cls.get_intensity_factor(magnitude, wilaya.rpa_zone)
+            
+            expected_loss = 0
+            for contract in contracts:
+                building_type = db.query(BuildingType).filter(
+                    BuildingType.id == contract.building_type_id
+                ).first()
+                vuln_factor = float(building_type.vulnerability_factor) if building_type else 0.5
+                contract_loss = float(contract.capital_assure) * vuln_factor * intensity_factor
+                expected_loss += contract_loss
+            
+            reinsurance_ratio = cls.get_reinsurance_ratio(db)
+            reinsurance_cover = expected_loss * reinsurance_ratio
+            net_loss = expected_loss - reinsurance_cover
+            loss_ratio = (expected_loss / total_capital * 100) if total_capital > 0 else 0
+            
+            result = {
                 "wilaya_id": wilaya_id,
                 "wilaya_name": wilaya.name_fr,
+                "magnitude": magnitude,
+                "total_capital_dzd": round(total_capital, 2),
+                "contract_count": len(contracts),
+                "expected_loss_dzd": round(expected_loss, 2),
+                "reinsurance_cover_dzd": round(reinsurance_cover, 2),
+                "net_company_loss_dzd": round(net_loss, 2),
+                "loss_ratio_pct": round(loss_ratio, 2),
+                "intensity_factor_used": intensity_factor,
+                "simulation_id": 0
+            }
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"PML calculation error: {e}")
+            return {
+                "wilaya_id": wilaya_id,
+                "wilaya_name": "Unknown",
                 "magnitude": magnitude,
                 "total_capital_dzd": 0,
                 "contract_count": 0,
@@ -119,93 +120,7 @@ class PMLEngine:
                 "reinsurance_cover_dzd": 0,
                 "net_company_loss_dzd": 0,
                 "loss_ratio_pct": 0,
-                "intensity_factor_used": 0
+                "intensity_factor_used": 0,
+                "simulation_id": 0,
+                "error": str(e)
             }
-        
-        # Sum total capital
-        total_capital = sum(float(c.capital_assure) for c in contracts)
-        
-        # Get intensity factor
-        intensity_factor = cls.get_intensity_factor(magnitude, wilaya.rpa_zone)
-        
-        # Calculate expected loss for each contract based on vulnerability
-        expected_loss = 0
-        for contract in contracts:
-            building_type = db.query(BuildingType).filter(
-                BuildingType.id == contract.building_type_id
-            ).first()
-            vuln_factor = float(building_type.vulnerability_factor) if building_type else 0.5
-            contract_loss = float(contract.capital_assure) * vuln_factor * intensity_factor
-            expected_loss += contract_loss
-        
-        # Get reinsurance configuration
-        retention_capacity = cls.get_retention_capacity(db)
-        reinsurance_ratio = cls.get_reinsurance_ratio(db)
-        
-        # Calculate net loss
-        reinsurance_cover = expected_loss * reinsurance_ratio
-        net_loss = expected_loss - reinsurance_cover
-        loss_ratio = (expected_loss / total_capital * 100) if total_capital > 0 else 0
-        
-        result = {
-            "wilaya_id": wilaya_id,
-            "wilaya_name": wilaya.name_fr,
-            "magnitude": magnitude,
-            "total_capital_dzd": round(total_capital, 2),
-            "contract_count": len(contracts),
-            "expected_loss_dzd": round(expected_loss, 2),
-            "reinsurance_cover_dzd": round(reinsurance_cover, 2),
-            "net_company_loss_dzd": round(net_loss, 2),
-            "loss_ratio_pct": round(loss_ratio, 2),
-            "intensity_factor_used": intensity_factor
-        }
-        
-        # Save to database
-        simulation = PMLSimulation(
-            wilaya_id=wilaya_id,
-            magnitude=magnitude,
-            scenario_month=scenario_month or date.today(),
-            total_capital_dzd=result["total_capital_dzd"],
-            contract_count=result["contract_count"],
-            expected_loss_dzd=result["expected_loss_dzd"],
-            reinsurance_cover_dzd=result["reinsurance_cover_dzd"],
-            net_company_loss_dzd=result["net_company_loss_dzd"],
-            loss_ratio_pct=result["loss_ratio_pct"],
-            intensity_factor_used=intensity_factor,
-            simulated_by_user_id=user_id
-        )
-        db.add(simulation)
-        db.commit()
-        db.refresh(simulation)
-        
-        result["simulation_id"] = simulation.id
-        return result
-    
-    @classmethod
-    def calculate_portfolio_pml(
-        cls,
-        db: Session,
-        magnitude: float,
-        scenario_month: Optional[date] = None
-    ) -> Dict[str, Any]:
-        """Calculate PML for entire portfolio"""
-        
-        wilayas = db.query(Wilaya).all()
-        
-        total_loss = 0
-        total_capital = 0
-        results = []
-        
-        for wilaya in wilayas:
-            pml_result = cls.calculate_pml(db, wilaya.id, magnitude, scenario_month, None)
-            results.append(pml_result)
-            total_loss += pml_result["expected_loss_dzd"]
-            total_capital += pml_result["total_capital_dzd"]
-        
-        return {
-            "magnitude": magnitude,
-            "total_portfolio_loss_dzd": total_loss,
-            "total_portfolio_capital_dzd": total_capital,
-            "portfolio_loss_ratio_pct": (total_loss / total_capital * 100) if total_capital > 0 else 0,
-            "wilaya_results": results
-        }

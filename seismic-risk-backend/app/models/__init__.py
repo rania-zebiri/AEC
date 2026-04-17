@@ -13,7 +13,17 @@ from .user import User
 from .audit_log import AuditLog
 
 __all__ = [
-    "Contract", "Wilaya", "BuildingType", "RiskScore", "PMLSimulation",
-    "HotspotSnapshot", "UnderwritingDecision", "PortfolioMonthlyStats",
-    "AIReport", "SeismicAlert", "RetentionConfig", "User", "AuditLog"
+    "Contract",
+    "Wilaya",
+    "BuildingType",
+    "RiskScore",
+    "PMLSimulation",
+    "HotspotSnapshot",
+    "UnderwritingDecision",
+    "PortfolioMonthlyStats",
+    "AIReport",
+    "SeismicAlert",
+    "RetentionConfig",
+    "User",
+    "AuditLog"
 ]

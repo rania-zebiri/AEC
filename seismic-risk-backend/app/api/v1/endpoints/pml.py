@@ -5,7 +5,7 @@ from typing import Optional, List
 from datetime import date, datetime
 from app.core.database import get_db
 from app.services.pml_engine import PMLEngine
-from app.services.claude_api import ClaudeService
+from app.services.llm_api import ClaudeService
 from app.core.logging import log_audit
 from app.models.wilaya import Wilaya
 from app.models.pml_simulation import PMLSimulation
@@ -14,8 +14,8 @@ router = APIRouter(prefix="/pml", tags=["PML"])
 
 
 class PMLRequest(BaseModel):
-    wilaya_id: int = Field(..., description="Wilaya ID to simulate")
-    magnitude: float = Field(..., ge=4.0, le=8.5, description="Earthquake magnitude (4.0-8.5)")
+    wilaya_id: int = Field(..., description="Wilaya ID to simulate", ge=1, le=58)
+    magnitude: float = Field(..., description="Earthquake magnitude", ge=4.0, le=8.5)
     scenario_month: Optional[date] = Field(None, description="Month for historical simulation")
     generate_narrative: bool = Field(False, description="Generate AI narrative")
 
@@ -40,7 +40,6 @@ def simulate_pml(
     request: PMLRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    # user_id would come from auth
 ):
     """Calculate PML for a given wilaya and magnitude"""
     
@@ -55,17 +54,15 @@ def simulate_pml(
         wilaya_id=request.wilaya_id,
         magnitude=request.magnitude,
         scenario_month=request.scenario_month,
-        user_id=None  # Would come from auth
+        user_id=None
     )
     
     # Generate AI narrative if requested
     if request.generate_narrative:
-        background_tasks.add_task(
-            ClaudeService.generate_pml_narrative,
-            db,
-            result["simulation_id"],
-            result
+        narrative = ClaudeService.generate_pml_narrative_sync(
+            db, result["simulation_id"], result
         )
+        result["ai_narrative"] = narrative
     
     # Log audit
     log_audit(
@@ -100,7 +97,7 @@ def simulate_pml(
 
 @router.post("/simulate-portfolio")
 def simulate_portfolio_pml(
-    magnitude: float = Field(..., ge=4.0, le=8.5),
+    magnitude: float = Query(..., description="Earthquake magnitude", ge=4.0, le=8.5),
     db: Session = Depends(get_db)
 ):
     """Calculate PML for entire portfolio"""
@@ -113,7 +110,11 @@ def simulate_portfolio_pml(
     
     for wilaya in wilayas:
         pml_result = PMLEngine.calculate_pml(db, wilaya.id, magnitude, None, None)
-        results.append(pml_result)
+        results.append({
+            "wilaya_name": pml_result["wilaya_name"],
+            "expected_loss_dzd": pml_result["expected_loss_dzd"],
+            "loss_ratio_pct": pml_result["loss_ratio_pct"]
+        })
         total_loss += pml_result["expected_loss_dzd"]
         total_capital += pml_result["total_capital_dzd"]
     
@@ -122,14 +123,7 @@ def simulate_portfolio_pml(
         "total_portfolio_loss_dzd": total_loss,
         "total_portfolio_capital_dzd": total_capital,
         "portfolio_loss_ratio_pct": (total_loss / total_capital * 100) if total_capital > 0 else 0,
-        "wilaya_results": [
-            {
-                "wilaya_name": r["wilaya_name"],
-                "expected_loss_dzd": r["expected_loss_dzd"],
-                "loss_ratio_pct": r["loss_ratio_pct"]
-            }
-            for r in results
-        ]
+        "wilaya_results": results
     }
 
 

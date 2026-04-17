@@ -23,4 +23,3 @@ class PMLSimulation(Base):
     
     # Relationships
     wilaya = relationship("Wilaya", back_populates="pml_simulations")
-    seismic_alert = relationship("SeismicAlert", back_populates="auto_pml", uselist=False)

@@ -5,7 +5,7 @@ from typing import Optional, List
 from datetime import date, datetime
 from app.core.database import get_db
 from app.services.underwriting import UnderwritingEngine
-from app.services.claude_api import ClaudeService
+from app.services.llm_api import ClaudeService
 from app.core.logging import log_audit
 from app.models.underwriting_decision import UnderwritingDecision
 from app.models.contract import Contract

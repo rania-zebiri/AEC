@@ -1,0 +1,97 @@
+version: '3.8'
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: seismic_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: nouha@20
+      POSTGRES_DB: seismic_risk_portfolio
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U seismic_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - seismic_network
+    restart: unless-stopped
+
+  # PGAdmin
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: seismic_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@seismic.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - seismic_network
+    restart: unless-stopped
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: seismic_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - seismic_network
+    restart: unless-stopped
+
+  # FastAPI Backend
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: seismic_api
+    environment:
+      DATABASE_URL: postgresql://seismic_user:seismic_password@postgres:5432/seismic_risk_portfolio
+      REDIS_URL: redis://redis:6379/0
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GROQ_MODEL: ${GROQ_MODEL:-llama3-70b-8192}
+      SECRET_KEY: ${SECRET_KEY:-your-super-secret-key}
+      DEBUG: ${DEBUG:-false}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app
+      - ./csv_data:/app/csv_data
+      - ./logs:/app/logs
+    networks:
+      - seismic_network
+    restart: unless-stopped
+    command: >
+      sh -c "
+        sleep 5 &&
+        python -c 'from app.core.database import engine, Base; from app.models import *; Base.metadata.create_all(bind=engine)' &&
+        python scripts/init_db.py &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      "
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  seismic_network:
+    driver: bridge

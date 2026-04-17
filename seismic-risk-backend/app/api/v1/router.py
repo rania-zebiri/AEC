@@ -1,13 +1,15 @@
+
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
-    dashboard, map, top10, pml, underwriting, 
-    monthly_compare, opportunities, client_score, 
-    hotspots, segmentation, reports, alerts
+    dashboard, map, top10, pml, underwriting,
+    monthly_compare, opportunities, client_score,
+    hotspots, segmentation, reports, alerts, auth
 )
 
 api_router = APIRouter(prefix="/api/v1")
 
 # Include all endpoint routers
+api_router.include_router(auth.router)  # Add auth FIRST
 api_router.include_router(dashboard.router)
 api_router.include_router(map.router)
 api_router.include_router(top10.router)
@@ -21,13 +23,13 @@ api_router.include_router(segmentation.router)
 api_router.include_router(reports.router)
 api_router.include_router(alerts.router)
 
-# Root endpoint
 @api_router.get("/")
 def root():
     return {
         "message": "Seismic Risk Portfolio API v1",
         "version": "1.0.0",
         "endpoints": {
+            "auth": "/api/v1/auth",
             "dashboard": "/api/v1/dashboard",
             "map": "/api/v1/map",
             "top10": "/api/v1/top10",
