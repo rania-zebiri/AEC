@@ -12,64 +12,65 @@ from app.models.risk_score import RiskScore
 router = APIRouter(prefix="/segmentation", tags=["Segmentation"])
 
 
+from sqlalchemy import distinct
+
 @router.get("/filter")
 def filter_contracts(
-    limit: int = Query(500, ge=1, le=1000),
+    limit: int = Query(1000, ge=1, le=5000),  # ← raise default limit
     offset: int = Query(0, ge=0),
     wilaya_id: Optional[int] = None,
     zone: Optional[str] = None,
     code_sous_branche: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    """
-    Filtrer les contrats actifs avec jointures wilaya + building_type.
-    Retourne les contrats paginés avec risk scores.
-    """
-
-    # FIX: Une seule query — pas de réinitialisation au milieu
-    query = (
-        db.query(Contract)
+    # Step 1: build the ID subquery first (clean distinct)
+    id_query = (
+        db.query(Contract.id)
+        .join(Wilaya, Contract.wilaya_id == Wilaya.id)
         .filter(Contract.is_active == True)
+    )
+
+    if wilaya_id:
+        id_query = id_query.filter(Contract.wilaya_id == wilaya_id)
+
+    if zone:
+        id_query = id_query.filter(
+            func.upper(func.trim(Wilaya.rpa_zone)) == zone.strip().upper()
+        )
+
+    if code_sous_branche:
+        id_query = id_query.filter(Contract.code_sous_branche == code_sous_branche)
+
+    # distinct IDs only
+    valid_ids = [row[0] for row in id_query.distinct().all()]
+    total_count = len(valid_ids)
+
+    # Step 2: paginate on the clean ID list
+    paginated_ids = valid_ids[offset: offset + limit]
+
+    # Step 3: fetch full objects with joinedload (no distinct needed now)
+    contracts = (
+        db.query(Contract)
         .options(
             joinedload(Contract.wilaya),
             joinedload(Contract.building_type),
         )
-        .join(Wilaya, Contract.wilaya_id == Wilaya.id)
+        .filter(Contract.id.in_(paginated_ids))
+        .order_by(Contract.id)
+        .all()
     )
 
-    # Filtre par wilaya
-    if wilaya_id:
-        query = query.filter(Contract.wilaya_id == wilaya_id)
-
-    # FIX: trim + upper des deux côtés pour éviter les espaces et casse
-    if zone:
-        query = query.filter(
-            func.upper(func.trim(Wilaya.rpa_zone)) == zone.strip().upper()
-        )
-
-    # Filtre par code sous branche
-    if code_sous_branche:
-        query = query.filter(Contract.code_sous_branche == code_sous_branche)
-
-    # FIX: distinct sur Contract.id pour éviter les doublons dus aux joinedload
-    query = query.distinct(Contract.id)
-
-    # Compter AVANT pagination
-    total_count = query.count()
-
-    # Pagination
-    contracts = query.order_by(Contract.id).offset(offset).limit(limit).all()
-
-    # FIX: charger tous les risk_scores en une seule requête (évite N+1)
-    contract_ids = [c.id for c in contracts]
+    # Step 4: risk scores in one query
     risk_scores_map = {}
-    if contract_ids:
+    if paginated_ids:
         risk_scores = (
             db.query(RiskScore)
-            .filter(RiskScore.contract_id.in_(contract_ids))
+            .filter(RiskScore.contract_id.in_(paginated_ids))
             .all()
         )
         risk_scores_map = {rs.contract_id: rs for rs in risk_scores}
+
+    # ... rest of result building unchanged
 
     result = []
     for contract in contracts:
