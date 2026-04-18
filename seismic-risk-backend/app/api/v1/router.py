@@ -41,6 +41,7 @@ def root():
             "hotspots": "/api/v1/hotspots",
             "segmentation": "/api/v1/segmentation",
             "reports": "/api/v1/reports",
-            "alerts": "/api/v1/alerts"
+            "alerts": "/api/v1/alerts",
+            "wilayas": "/api/v1/wilayas"
         }
     }

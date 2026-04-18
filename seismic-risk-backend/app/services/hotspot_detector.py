@@ -74,7 +74,11 @@ class HotspotDetector:
             excess_pct = (excess_dzd / retention_capacity * 100) if retention_capacity > 0 else 0
             
             # Calculate PML for magnitude 6.5
-            pml_result = PMLEngine.calculate_pml(db, wilaya.id, 6.5, None, None)
+            try:
+                pml_result = PMLEngine.calculate_pml(db, wilaya.id, 6.5, None, None)
+                pml_value = pml_result["expected_loss_dzd"] if pml_result else 0
+            except:
+                pml_value = 0
             
             snapshot = HotspotSnapshot(
                 wilaya_id=wilaya.id,
@@ -88,7 +92,7 @@ class HotspotDetector:
                 excess_dzd=excess_dzd,
                 excess_pct=round(excess_pct, 2),
                 retention_capacity_dzd=retention_capacity,
-                pml_mag65_dzd=pml_result["expected_loss_dzd"]
+                pml_mag65_dzd=pml_value
             )
             
             db.add(snapshot)
@@ -100,38 +104,81 @@ class HotspotDetector:
         return snapshots
     
     @classmethod
-    def get_current_hotspots(cls, db: Session) -> List[Dict[str, Any]]:
-        """Get current hotspots"""
+    def get_current_hotspots(cls, db: Session) -> Dict[str, Any]:
+        """Get current hotspots, warnings and safe wilayas"""
         
         today = date.today()
+        retention_capacity = cls.get_retention_capacity(db)
+        
+        # Get or create snapshot for today
         snapshots = db.query(HotspotSnapshot).filter(
-            HotspotSnapshot.snapshot_date == today,
-            HotspotSnapshot.is_hotspot == True
+            HotspotSnapshot.snapshot_date == today
         ).all()
         
         if not snapshots:
-            # Create snapshot if none exists for today
             cls.create_snapshot(db, today)
             snapshots = db.query(HotspotSnapshot).filter(
-                HotspotSnapshot.snapshot_date == today,
-                HotspotSnapshot.is_hotspot == True
+                HotspotSnapshot.snapshot_date == today
             ).all()
         
-        result = []
+        hotspots = []
+        warnings = []
+        safe_wilayas = []
+        
         for snapshot in snapshots:
             wilaya = db.query(Wilaya).filter(Wilaya.id == snapshot.wilaya_id).first()
-            if wilaya:
-                result.append({
-                    "wilaya_id": snapshot.wilaya_id,
-                    "wilaya_name": wilaya.name_fr,
-                    "wilaya_code": wilaya.code,
-                    "rpa_zone": wilaya.rpa_zone,
-                    "total_capital_dzd": float(snapshot.total_capital_dzd),
-                    "retention_capacity_dzd": float(snapshot.retention_capacity_dzd),
-                    "excess_dzd": float(snapshot.excess_dzd),
-                    "excess_pct": float(snapshot.excess_pct),
-                    "contract_count": snapshot.contract_count,
-                    "pml_mag65_dzd": float(snapshot.pml_mag65_dzd) if snapshot.pml_mag65_dzd else 0
+            if not wilaya:
+                continue
+                
+            exposure = float(snapshot.total_capital_dzd)
+            usage_pct = (exposure / retention_capacity * 100) if retention_capacity > 0 else 0
+            
+            wilaya_data = {
+                "id": snapshot.wilaya_id,
+                "name": wilaya.name_fr,
+                "code": wilaya.code,
+                "zone": wilaya.rpa_zone,
+                "capacity": retention_capacity,
+                "exposure": exposure,
+                "usage_pct": round(usage_pct, 1),
+                "contract_count": snapshot.contract_count,
+                "pml_mag65_dzd": float(snapshot.pml_mag65_dzd) if snapshot.pml_mag65_dzd else 0
+            }
+            
+            # Classification
+            if usage_pct >= 100:
+                # Hotspot
+                hotspots.append({
+                    **wilaya_data,
+                    "res": exposure * 0.5,
+                    "com": exposure * 0.3,
+                    "ind": exposure * 0.2,
+                    "score": min(100, int(50 + usage_pct * 0.5))
                 })
+            elif usage_pct >= 75:
+                # Warning
+                warnings.append({
+                    **wilaya_data,
+                    "score": int(40 + usage_pct * 0.3)
+                })
+            else:
+                # Safe
+                safe_wilayas.append(wilaya_data)
         
-        return sorted(result, key=lambda x: x["excess_pct"], reverse=True)
+        # Trier par exposition
+        hotspots.sort(key=lambda x: x["exposure"], reverse=True)
+        warnings.sort(key=lambda x: x["exposure"], reverse=True)
+        safe_wilayas.sort(key=lambda x: x["exposure"], reverse=True)
+        
+        return {
+            "hotspots": hotspots,
+            "warnings": warnings,
+            "safe_wilayas": safe_wilayas,
+            "global_capacity": retention_capacity,
+            "stats": {
+                "safe": len(safe_wilayas),
+                "warning": len(warnings),
+                "hotspot": len(hotspots)
+            },
+            "last_updated": today.isoformat()
+        }

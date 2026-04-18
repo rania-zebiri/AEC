@@ -1,63 +1,82 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import date, timedelta
 from app.core.database import get_db
-from app.models.hotspot_snapshot import HotspotSnapshot
-from app.models.wilaya import Wilaya
-from app.models.contract import Contract
-from app.models.retention_config import RetentionConfig
+from app.services.hotspot_detector import HotspotDetector
 
 router = APIRouter(prefix="/hotspots", tags=["Hotspots"])
 
 
 @router.get("/current")
 def get_current_hotspots(db: Session = Depends(get_db)):
-    """Returns current hotspots"""
+    """Returns current hotspots, warnings and safe wilayas"""
     
     try:
-        # Get retention capacity
-        config = db.query(RetentionConfig).filter(
-            RetentionConfig.config_key == "GLOBAL_RETENTION_CAPACITY"
-        ).order_by(RetentionConfig.effective_from.desc()).first()
-        retention_capacity = float(config.config_value) if config else 1_000_000_000
+        result = HotspotDetector.get_current_hotspots(db)
+        return result
+    except Exception as e:
+        return {
+            "hotspots": [],
+            "warnings": [],
+            "safe_wilayas": [],
+            "global_capacity": 1000000000,
+            "stats": {"safe": 0, "warning": 0, "hotspot": 0},
+            "error": str(e),
+            "last_updated": date.today().isoformat()
+        }
+
+
+@router.get("/snapshot/{snapshot_date}")
+def get_snapshot_hotspots(
+    snapshot_date: date,
+    db: Session = Depends(get_db)
+):
+    """Returns hotspots for a specific date"""
+    
+    try:
+        from app.models.hotspot_snapshot import HotspotSnapshot
+        from app.models.wilaya import Wilaya
         
-        # Get current exposure per wilaya
-        results = db.query(
-            Wilaya.id,
-            Wilaya.name_fr,
-            Wilaya.code,
-            Wilaya.rpa_zone,
-            Wilaya.zone_score,
-            func.coalesce(func.sum(Contract.capital_assure), 0).label("total_capital"),
-            func.count(Contract.id).label("contract_count")
-        ).outerjoin(Contract, (Contract.wilaya_id == Wilaya.id) & (Contract.is_active == True))\
-         .group_by(Wilaya.id)\
-         .having(func.coalesce(func.sum(Contract.capital_assure), 0) > retention_capacity)\
-         .order_by(func.coalesce(func.sum(Contract.capital_assure), 0).desc())\
-         .all()
+        snapshots = db.query(HotspotSnapshot).filter(
+            HotspotSnapshot.snapshot_date == snapshot_date,
+            HotspotSnapshot.is_hotspot == True
+        ).all()
         
-        hotspots = []
-        for row in results:
-            excess_dzd = float(row.total_capital) - retention_capacity
-            excess_pct = (excess_dzd / retention_capacity * 100) if retention_capacity > 0 else 0
-            
-            hotspots.append({
-                "wilaya_id": row.id,
-                "wilaya_name": row.name_fr,
-                "wilaya_code": row.code,
-                "rpa_zone": row.rpa_zone,
-                "zone_score": float(row.zone_score),
-                "total_capital_dzd": float(row.total_capital),
-                "retention_capacity_dzd": retention_capacity,
-                "excess_dzd": excess_dzd,
-                "excess_pct": round(excess_pct, 2),
-                "contract_count": row.contract_count,
-                "risk_level": "CRITICAL" if excess_pct > 200 else "HIGH" if excess_pct > 100 else "MEDIUM"
-            })
+        result = []
+        for snapshot in snapshots:
+            wilaya = db.query(Wilaya).filter(Wilaya.id == snapshot.wilaya_id).first()
+            if wilaya:
+                result.append({
+                    "wilaya_id": snapshot.wilaya_id,
+                    "wilaya_name": wilaya.name_fr,
+                    "wilaya_code": wilaya.code,
+                    "rpa_zone": wilaya.rpa_zone,
+                    "total_capital_dzd": float(snapshot.total_capital_dzd),
+                    "retention_capacity_dzd": float(snapshot.retention_capacity_dzd),
+                    "excess_dzd": float(snapshot.excess_dzd),
+                    "excess_pct": float(snapshot.excess_pct),
+                    "contract_count": snapshot.contract_count
+                })
         
-        return hotspots
-        
+        return result
     except Exception as e:
         return {"error": str(e), "hotspots": []}
+
+
+@router.post("/snapshot")
+def create_snapshot(
+    snapshot_date: Optional[date] = None,
+    db: Session = Depends(get_db)
+):
+    """Manually create a hotspot snapshot"""
+    
+    try:
+        snapshots = HotspotDetector.create_snapshot(db, snapshot_date)
+        return {
+            "message": f"Created {len(snapshots)} snapshots",
+            "snapshot_date": (snapshot_date or date.today()).isoformat(),
+            "count": len(snapshots)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
