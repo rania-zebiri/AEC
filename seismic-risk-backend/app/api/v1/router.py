@@ -4,8 +4,9 @@ from app.api.v1.endpoints import (
     dashboard, map, top10, pml, underwriting,
     monthly_compare, opportunities, client_score,
     hotspots, segmentation, reports, alerts, auth,
-    wilayas_list  
+    wilayas_list, settings
 )
+
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -23,7 +24,7 @@ api_router.include_router(segmentation.router)
 api_router.include_router(reports.router)
 api_router.include_router(alerts.router)
 api_router.include_router(wilayas_list.router)  
-
+api_router.include_router(settings.router)  
 @api_router.get("/")
 def root():
     return {
@@ -43,6 +44,7 @@ def root():
             "segmentation": "/api/v1/segmentation",
             "reports": "/api/v1/reports",
             "alerts": "/api/v1/alerts",
-            "wilayas": "/api/v1/wilayas"
+            "wilayas_list": "/api/v1/wilayas_list",
+            "settings": "/api/v1/settings"
         }
     }
