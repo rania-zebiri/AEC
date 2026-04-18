@@ -8,7 +8,7 @@ from seismic_risk_ai.core.analytics.elasticity import get_pricing_advice
 from seismic_risk_ai.core.analytics.p2p_simulator import simulate_p2p_sharing
 from seismic_risk_ai.services.llm_service import generate_strategic_report
 from seismic_risk_ai.core.analytics.pml_engine import calculate_pml
-from seismic_risk_ai.services.report_generator import generate_acaps_csv
+from seismic_risk_ai.services.recommandation import generate_acaps_csv
 
 class SeismicAI:
     @staticmethod
