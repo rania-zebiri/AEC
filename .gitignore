@@ -1,0 +1,7 @@
+data/
+*.npy
+*.npz
+*.h5
+*.mat
+.DS_Store
+__pycache__/
